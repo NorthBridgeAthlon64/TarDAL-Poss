@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TarDAL图像融合系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0c1e3e 0%, #1a3a5f 100%);
+            color: #e0f0ff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(16, 32, 64, 0.85);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 20px;
+            background: linear-gradient(90deg, rgba(20, 40, 80, 0.9) 0%, rgba(30, 60, 120, 0.9) 100%);
+            border-bottom: 1px solid rgba(100, 150, 255, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 10px rgba(79, 172, 254, 0.3);
+        }
+
+        .subtitle {
+            color: #a0c8ff;
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(100, 150, 255, 0.3);
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            background: rgba(0, 20, 40, 0.5);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            border-color: rgba(100, 150, 255, 0.6);
+            background: rgba(0, 30, 60, 0.7);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #4facfe;
+            background: rgba(79, 172, 254, 0.1);
+        }
+
+        .upload-area.has-image {
+            border-color: #00d48e;
+            background: rgba(0, 212, 142, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: rgba(100, 150, 255, 0.5);
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            color: #a0c8ff;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #7090cc;
+            font-size: 0.9rem;
+        }
+
+        .upload-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            letter-spacing: 0.5px;
+            min-width: 160px;
+        }
+
+        .process-btn {
+            background: linear-gradient(90deg, #00a86b 0%, #00d48e 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 168, 107, 0.4);
+        }
+
+        .process-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 168, 107, 0.6);
+            background: linear-gradient(90deg, #00d48e 0%, #00e89e 100%);
+        }
+
+        .process-btn:disabled {
+            background: linear-gradient(90deg, #555 0%, #777 100%);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .clear-btn {
+            background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        .clear-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(231, 76, 60, 0.6);
+        }
+
+        .status-info {
+            padding: 15px 25px;
+            background: rgba(0, 30, 60, 0.5);
+            border-radius: 10px;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            color: #a0c8ff;
+            min-width: 250px;
+            text-align: center;
+        }
+
+        .progress-container {
+            padding: 20px 30px;
+            background: rgba(0, 30, 60, 0.7);
+            margin: 0 30px;
+            border-radius: 15px;
+            display: none;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            color: #a0c8ff;
+        }
+
+        .progress-bar {
+            height: 12px;
+            background: rgba(0, 20, 40, 0.8);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 6px;
+        }
+
+        .result-section {
+            padding: 30px;
+        }
+
+        .result-container {
+            background: rgba(0, 20, 40, 0.5);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .result-container h3 {
+            color: #4facfe;
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+        }
+
+        .result-image {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        .result-placeholder {
+            color: #7090cc;
+            font-size: 1.1rem;
+            padding: 60px 20px;
+        }
+
+        .metrics-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .metric {
+            background: rgba(16, 32, 64, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .metric:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border-color: rgba(100, 150, 255, 0.4);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #00f2fe;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(0, 242, 254, 0.3);
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: #a0c8ff;
+        }
+
+        .download-btn {
+            background: linear-gradient(90deg, #d4a017 0%, #f0c420 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(212, 160, 23, 0.4);
+            margin-top: 20px;
+        }
+
+        .download-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(212, 160, 23, 0.6);
+        }
+
+        .download-btn:disabled {
+            background: linear-gradient(90deg, #555 0%, #777 100%);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .error-message {
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .success-message {
+            background: rgba(0, 212, 142, 0.1);
+            border: 1px solid rgba(0, 212, 142, 0.3);
+            color: #00d48e;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .upload-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-panel {
+                flex-direction: column;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>TarDAL图像融合系统</h1>
+            <p class="subtitle">基于双对抗学习的红外与可见光图像融合算法</p>
+        </header>
+
+        <div class="upload-section">
+            <div class="upload-area" id="irUpload">
+                <i class="fas fa-thermometer-half upload-icon"></i>
+                <div class="upload-text">上传红外图像</div>
+                <div class="upload-hint">点击或拖拽文件到此处</div>
+                <img class="upload-preview" id="irPreview" alt="红外图像预览">
+                <input type="file" id="irInput" accept="image/*" style="display: none;">
+            </div>
+
+            <div class="upload-area" id="viUpload">
+                <i class="fas fa-eye upload-icon"></i>
+                <div class="upload-text">上传可见光图像</div>
+                <div class="upload-hint">点击或拖拽文件到此处</div>
+                <img class="upload-preview" id="viPreview" alt="可见光图像预览">
+                <input type="file" id="viInput" accept="image/*" style="display: none;">
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <button class="btn process-btn" id="processBtn" disabled>
+                <i class="fas fa-cogs"></i> 开始融合
+            </button>
+            <button class="btn clear-btn" id="clearBtn">
+                <i class="fas fa-trash"></i> 清空重置
+            </button>
+            <div class="status-info" id="statusInfo">
+                <i class="fas fa-info-circle"></i> 请上传两张图像
+            </div>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-header">
+                <span>处理进度</span>
+                <span id="progressText">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress" id="progressBar"></div>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+
+        <div class="result-section">
+            <div class="result-container">
+                <h3>融合结果</h3>
+                <div class="result-placeholder" id="resultPlaceholder">
+                    <i class="fas fa-image" style="font-size: 3rem; margin-bottom: 20px; display: block;"></i>
+                    融合后的图像将显示在此处
+                </div>
+                <img class="result-image" id="resultImage" alt="融合结果">
+                
+                <button class="btn download-btn" id="downloadBtn" disabled>
+                    <i class="fas fa-download"></i> 下载结果
+                </button>
+
+                <div class="metrics-panel" id="metricsPanel" style="display: none;">
+                    <div class="metric">
+                        <div class="metric-value" id="psnrValue">--</div>
+                        <div class="metric-label">PSNR (dB)</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="ssimValue">--</div>
+                        <div class="metric-label">SSIM</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="detectionValue">--%</div>
+                        <div class="metric-label">检测提升</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="timeValue">--s</div>
+                        <div class="metric-label">处理时间</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

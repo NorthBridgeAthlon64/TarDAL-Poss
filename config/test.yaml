@@ -1,0 +1,53 @@
+# 测试配置文件
+device   : cuda # 如果没有GPU，改为 cpu
+save_dir : 'cache'
+
+debug    :
+  log       : INFO
+  wandb_mode: 'offline'
+  fast_run  : false
+
+strategy : fuse
+
+fuse     :
+  dim       : 32
+  depth     : 3
+  pretrained: ~ # 使用默认的预训练模型
+
+dataset  :
+  name  : M3FD
+  root  : data/m3fd
+
+train    :
+  image_size   : [ 224, 224 ]
+  batch_size   : 1  # 减小batch size避免内存问题
+  num_workers  : 0  # Windows下建议设为0
+
+inference:
+  batch_size : 1
+  num_workers: 0
+  use_eval   : true
+  grayscale  : false
+  save_txt   : false
+
+loss     :
+  fuse  :
+    src_fn: v1
+    src   : 0.8
+    adv   : 0.2
+    t_adv : 0
+    d_adv : 0
+    d_mask: false
+    d_warm: 10
+
+optimizer:
+  name        : adamw
+  lr_i        : 1.0e-3
+  lr_f        : 1.0e-3
+  momentum    : 0.937
+  weight_decay: 5.0e-4
+
+scheduler:
+  warmup_epochs  : 3.0
+  warmup_momentum: 0.8
+  warmup_bias_lr : 0.1
