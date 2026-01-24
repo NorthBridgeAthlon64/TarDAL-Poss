@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TarDAL算法演示系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0c1e3e 0%, #1a3a5f 100%);
+            color: #e0f0ff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(16, 32, 64, 0.85);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 20px;
+            background: linear-gradient(90deg, rgba(20, 40, 80, 0.9) 0%, rgba(30, 60, 120, 0.9) 100%);
+            border-bottom: 1px solid rgba(100, 150, 255, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 10px rgba(79, 172, 254, 0.3);
+        }
+
+        .subtitle {
+            color: #a0c8ff;
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            padding: 30px;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .upload-btn {
+            background: linear-gradient(90deg, #2a5caa 0%, #3a7ce0 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(42, 92, 170, 0.4);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(42, 92, 170, 0.6);
+            background: linear-gradient(90deg, #3a7ce0 0%, #4a8cf0 100%);
+        }
+
+        .process-btn {
+            background: linear-gradient(90deg, #00a86b 0%, #00d48e 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 168, 107, 0.4);
+        }
+
+        .process-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 168, 107, 0.6);
+            background: linear-gradient(90deg, #00d48e 0%, #00e89e 100%);
+        }
+
+        .process-btn:disabled {
+            background: linear-gradient(90deg, #555 0%, #777 100%);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .save-btn {
+            background: linear-gradient(90deg, #d4a017 0%, #f0c420 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(212, 160, 23, 0.4);
+        }
+
+        .save-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(212, 160, 23, 0.6);
+            background: linear-gradient(90deg, #f0c420 0%, #ffd83d 100%);
+        }
+
+        .save-btn:disabled {
+            background: linear-gradient(90deg, #555 0%, #777 100%);
+            cursor: not-allowed;
+            box-shadow: none;
+            opacity: 0.7;
+        }
+
+        .file-info {
+            padding: 15px 25px;
+            background: rgba(0, 30, 60, 0.5);
+            border-radius: 10px;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            color: #a0c8ff;
+            min-width: 250px;
+        }
+
+        .comparison-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            padding: 30px;
+            justify-content: center;
+        }
+
+        .image-container {
+            flex: 1;
+            min-width: 300px;
+            max-width: 600px;
+        }
+
+        .image-container h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            color: #4facfe;
+            text-shadow: 0 2px 5px rgba(79, 172, 254, 0.2);
+        }
+
+        .image-placeholder {
+            width: 100%;
+            height: 400px;
+            background: rgba(0, 20, 40, 0.7);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid rgba(100, 150, 255, 0.3);
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .image-placeholder i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: rgba(100, 150, 255, 0.5);
+        }
+
+        .image-placeholder div {
+            color: #88aadd;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .metrics-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: rgba(0, 20, 40, 0.5);
+            border-top: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .metric {
+            background: rgba(16, 32, 64, 0.8);
+            border-radius: 12px;
+            padding: 25px 20px;
+            text-align: center;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .metric:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border-color: rgba(100, 150, 255, 0.4);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #00f2fe;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(0, 242, 254, 0.3);
+        }
+
+        .metric-label {
+            font-size: 1rem;
+            color: #a0c8ff;
+        }
+
+        .progress-container {
+            padding: 20px;
+            background: rgba(0, 30, 60, 0.7);
+            margin: 0 30px 30px;
+            border-radius: 15px;
+            display: none;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            color: #a0c8ff;
+        }
+
+        .progress-bar {
+            height: 12px;
+            background: rgba(0, 20, 40, 0.8);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 6px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 15px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .control-panel {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .image-placeholder {
+                height: 300px;
+            }
+
+            .metric-value {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>TarDAL算法演示系统</h1>
+            <p class="subtitle">基于双对抗学习的多模态图像融合算法 - 专为低可见度条件优化</p>
+        </header>
+
+        <div class="control-panel">
+            <button class="btn upload-btn" id="uploadBtn">
+                <i class="fas fa-cloud-upload-alt"></i> 上传图像
+            </button>
+            <button class="btn process-btn" id="processBtn" disabled>
+                <i class="fas fa-cogs"></i> 运行算法
+            </button>
+            <button class="btn save-btn" id="saveBtn" disabled>
+                <i class="fas fa-download"></i> 保存图像
+            </button>
+            <div class="file-info" id="fileInfo">
+                <i class="fas fa-info-circle"></i> 未选择文件
+            </div>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-header">
+                <span>算法处理进度</span>
+                <span id="progressText">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress" id="progressBar"></div>
+            </div>
+        </div>
+
+        <div class="comparison-section">
+            <div class="image-container">
+                <h3>原始输入图像</h3>
+                <div class="image-placeholder" id="originalImage">
+                    <i class="fas fa-image"></i>
+                    <div>等待上传图像</div>
+                </div>
+            </div>
+
+            <div class="image-container">
+                <h3>TarDAL算法处理后</h3>
+                <div class="image-placeholder" id="processedImage">
+                    <i class="fas fa-cogs"></i>
+                    <div>处理结果将显示在此处</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics-panel">
+            <div class="metric">
+                <div class="metric-value" id="psnrValue">--</div>
+                <div class="metric-label">PSNR (峰值信噪比)</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="ssimValue">--</div>
+                <div class="metric-label">SSIM (结构相似性)</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="detectionValue">--%</div>
+                <div class="metric-label">检测准确率提升</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="processingTime">--s</div>
+                <div class="metric-label">处理时间</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // ============== DOM元素引用 ==============
+            const uploadBtn = document.getElementById('uploadBtn');
+            const processBtn = document.getElementById('processBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const fileInfo = document.getElementById('fileInfo');
+            const originalImage = document.getElementById('originalImage');
+            const processedImage = document.getElementById('processedImage');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const psnrValue = document.getElementById('psnrValue');
+            const ssimValue = document.getElementById('ssimValue');
+            const detectionValue = document.getElementById('detectionValue');
+            const processingTime = document.getElementById('processingTime');
+
+            // ============== 状态管理 ==============
+            const AppState = {
+                currentFile: null,
+                currentImageUrl: null,
+                processedImageUrl: null,
+                processedImageData: null,
+                isProcessing: false,
+                progressInterval: null
+            };
+
+            // ============== 示例图片URL（用于演示） ==============
+            const sampleImages = [
+                'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80',
+                'https://images.unsplash.com/photo-1519681393784-d120267933ba?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80'
+            ];
+
+            // ============== 核心算法函数（纯图像处理） ==============
+            async function processImageWithTarDAL(imageData) {
+                // TODO: 这里替换为实际的TarDAL算法处理逻辑
+                // 输入: imageData (可以是Image对象、base64数据、像素数据等)
+                // 输出: 处理后的图像数据和性能指标
+
+                // 当前为模拟处理，实际使用时替换为以下步骤：
+                // 1. 加载图像数据
+                // 2. 执行TarDAL算法处理（特征提取、双对抗学习、图像融合等）
+                // 3. 生成处理后的图像
+                // 4. 计算性能指标
+
+                // 模拟处理延迟
+                await delay(800);
+
+                // 模拟处理结果
+                return {
+                    processedImage: imageData, // 实际应为算法处理后的图像数据
+                    metrics: {
+                        psnr: 32 + Math.random() * 6,      // 峰值信噪比
+                        ssim: 0.88 + Math.random() * 0.1,  // 结构相似性
+                        detectionImprovement: 18 + Math.random() * 15, // 检测准确率提升
+                        processingTime: 1.0 + Math.random() * 1.5      // 处理时间
+                    }
+                };
+            }
+
+            // ============== 主要业务流程 ==============
+            async function startImageProcessing() {
+                // 验证状态
+                if (!AppState.currentImageUrl) {
+                    alert('请先上传图像');
+                    return;
+                }
+
+                // 设置处理状态
+                setProcessingState(true);
+                startProgressAnimation();
+
+                try {
+                    // 1. 执行纯算法处理
+                    const result = await processImageWithTarDAL(AppState.currentImageUrl);
+
+                    // 2. 更新应用状态
+                    AppState.processedImageUrl = result.processedImage;
+
+                    // 3. 更新UI（先显示图像）
+                    const imgElement = updateUIWithResult(result);
+
+                    // 4. 等待图像完全加载到DOM中
+                    await waitForImageLoad(imgElement);
+                    
+                    // 5. 获取图像数据用于保存
+                    AppState.processedImageData = await prepareImageDataForSaving(imgElement);
+
+                    // 6. 启用保存按钮
+                    saveBtn.disabled = false;
+
+                } catch (error) {
+                    handleProcessingError(error);
+                } finally {
+                    // 7. 清理状态
+                    setProcessingState(false);
+                    stopProgressAnimation();
+                }
+            }
+
+            // ============== 等待图像加载函数 ==============
+            function waitForImageLoad(imgElement) {
+                return new Promise((resolve, reject) => {
+                    if (imgElement.complete && imgElement.naturalWidth > 0) {
+                        resolve();
+                        return;
+                    }
+                    
+                    imgElement.onload = () => resolve();
+                    imgElement.onerror = () => reject(new Error('图像加载失败'));
+                    
+                    // 设置超时，防止无限等待
+                    setTimeout(() => {
+                        if (imgElement.complete) {
+                            resolve();
+                        } else {
+                            reject(new Error('图像加载超时'));
+                        }
+                    }, 5000);
+                });
+            }
+
+            // ============== UI更新函数 ==============
+            function updateUIWithResult(result) {
+                // 显示处理后的图像
+                const imgElement = displayImage(processedImage, result.processedImage);
+
+                // 更新性能指标
+                updateMetrics(result.metrics);
+
+                // 显示成功提示
+                showSuccessMessage();
+
+                // 添加动画效果
+                animateMetrics();
+                
+                // 返回图像元素以便后续使用
+                return imgElement;
+            }
+
+            function updateMetrics(metrics) {
+                psnrValue.textContent = metrics.psnr.toFixed(1);
+                ssimValue.textContent = metrics.ssim.toFixed(3);
+                detectionValue.textContent = metrics.detectionImprovement.toFixed(0) + '%';
+                processingTime.textContent = metrics.processingTime.toFixed(1) + 's';
+            }
+
+            // ============== 状态管理函数 ==============
+            function setProcessingState(isProcessing) {
+                AppState.isProcessing = isProcessing;
+                processBtn.disabled = isProcessing;
+                saveBtn.disabled = isProcessing;
+                processBtn.innerHTML = isProcessing
+                    ? '<i class="fas fa-spinner fa-spin"></i> 处理中...'
+                    : '<i class="fas fa-redo"></i> 重新处理';
+            }
+
+            function startProgressAnimation() {
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '0%';
+                progressText.textContent = '0%';
+
+                let progress = 0;
+                AppState.progressInterval = setInterval(() => {
+                    progress += Math.random() * 8 + 4;
+                    if (progress > 100) progress = 100;
+                    progressBar.style.width = progress + '%';
+                    progressText.textContent = Math.round(progress) + '%';
+                }, 150);
+            }
+
+            function stopProgressAnimation() {
+                if (AppState.progressInterval) {
+                    clearInterval(AppState.progressInterval);
+                    AppState.progressInterval = null;
+                }
+                progressContainer.style.display = 'none';
+                progressBar.style.width = '0%';
+            }
+
+            // ============== 文件处理函数 ==============
+            function handleFileUpload(file) {
+                if (!file.type.match('image.*')) {
+                    alert('请选择图像文件（JPG、PNG格式）');
+                    return;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('文件大小不能超过10MB');
+                    return;
+                }
+
+                AppState.currentFile = file;
+
+                // 显示文件信息
+                fileInfo.innerHTML = `<i class="fas fa-file-image"></i> ${file.name} (${formatFileSize(file.size)})`;
+
+                // 读取图像并显示预览
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    AppState.currentImageUrl = e.target.result;
+                    displayImage(originalImage, AppState.currentImageUrl);
+
+                    // 重置处理状态
+                    resetProcessingState();
+
+                    // 启用处理按钮
+                    processBtn.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // ============== 图像显示与处理函数 ==============
+            function displayImage(container, imageUrl) {
+                container.querySelector('i').style.display = 'none';
+                container.querySelector('div').style.display = 'none';
+
+                let imgElement = container.querySelector('img');
+                if (imgElement) {
+                    imgElement.src = imageUrl;
+                } else {
+                    imgElement = document.createElement('img');
+                    imgElement.src = imageUrl;
+                    container.appendChild(imgElement);
+                }
+                imgElement.style.display = 'block';
+                return imgElement;
+            }
+
+            // ============== 修改 prepareImageDataForSaving 函数 ==============
+            async function prepareImageDataForSaving(imgElement) {
+                return new Promise((resolve) => {
+                    // 确保图像已加载
+                    if (!imgElement.complete || imgElement.naturalWidth === 0) {
+                        imgElement.onload = function () {
+                            const imageData = getImageDataFromCanvas(imgElement);
+                            resolve(imageData);
+                        };
+                    } else {
+                        const imageData = getImageDataFromCanvas(imgElement);
+                        resolve(imageData);
+                    }
+                });
+            }
+
+            function getImageDataFromCanvas(imgElement) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                canvas.width = imgElement.naturalWidth || imgElement.width;
+                canvas.height = imgElement.naturalHeight || imgElement.height;
+                ctx.drawImage(imgElement, 0, 0);
+
+                try {
+                    return canvas.toDataURL('image/png');
+                } catch (e) {
+                    return canvas.toDataURL();
+                }
+            }
+
+            function saveProcessedImage() {
+                if (!AppState.processedImageData) {
+                    alert('无法获取图像数据，请重新处理图像');
+                    return;
+                }
+
+                // 生成文件名
+                let fileName = 'TarDAL_processed_image.png';
+                if (AppState.currentFile) {
+                    const originalName = AppState.currentFile.name;
+                    const dotIndex = originalName.lastIndexOf('.');
+                    fileName = dotIndex > -1
+                        ? originalName.substring(0, dotIndex) + '_TarDAL_processed.png'
+                        : originalName + '_TarDAL_processed.png';
+                }
+
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = AppState.processedImageData;
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                alert(`图像已保存为: ${fileName}`);
+            }
+
+            // ============== 工具函数 ==============
+            function delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                else return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            function resetProcessingState() {
+                // 重置处理后的图像区域
+                processedImage.querySelector('i').style.display = 'block';
+                processedImage.querySelector('div').style.display = 'block';
+                const processedImg = processedImage.querySelector('img');
+                if (processedImg) processedImg.remove();
+
+                // 重置状态
+                AppState.processedImageUrl = null;
+                AppState.processedImageData = null;
+                AppState.isProcessing = false;
+
+                // 重置指标
+                psnrValue.textContent = '--';
+                ssimValue.textContent = '--';
+                detectionValue.textContent = '--%';
+                processingTime.textContent = '--s';
+
+                // 禁用保存按钮
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fas fa-download"></i> 保存图像';
+            }
+
+            function animateMetrics() {
+                const metrics = document.querySelectorAll('.metric');
+                metrics.forEach(metric => {
+                    metric.style.animation = 'none';
+                    setTimeout(() => metric.style.animation = 'pulse 0.5s', 10);
+                });
+            }
+
+            function showSuccessMessage() {
+                setTimeout(() => {
+                    alert('算法处理完成！您可以点击"保存图像"按钮下载处理后的结果。');
+                }, 300);
+            }
+
+            function handleProcessingError(error) {
+                console.error('图像处理失败:', error);
+                alert('图像处理失败: ' + error.message);
+                resetProcessingState();
+            }
+
+            // ============== 事件监听器 ==============
+            uploadBtn.addEventListener('click', function () {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = function (e) {
+                    if (e.target.files.length > 0) {
+                        handleFileUpload(e.target.files[0]);
+                    }
+                };
+                input.click();
+            });
+
+            processBtn.addEventListener('click', startImageProcessing);
+
+            saveBtn.addEventListener('click', saveProcessedImage);
+
+            // ============== 初始化函数 ==============
+            function loadSampleImage() {
+                const randomIndex = Math.floor(Math.random() * sampleImages.length);
+                AppState.currentImageUrl = sampleImages[randomIndex];
+
+                const img = new Image();
+                img.onload = function () {
+                    displayImage(originalImage, AppState.currentImageUrl);
+                    fileInfo.innerHTML = `<i class="fas fa-image"></i> 示例图像 (低可见度场景)`;
+                    processBtn.disabled = false;
+                };
+                img.src = AppState.currentImageUrl;
+            }
+
+            // ============== 初始化执行 ==============
+            loadSampleImage();
+
+            // 添加CSS动画
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes pulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.05); }
+                    100% { transform: scale(1); }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+</body>
+
+</html>
