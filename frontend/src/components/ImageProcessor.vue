@@ -14,10 +14,12 @@
         @dragleave.prevent="dragState.ir = false"
         @drop.prevent="onDrop('ir', $event)"
       >
-        <i class="fas fa-thermometer-half upload-icon"></i>
-        <div class="upload-text">上传红外图像</div>
-        <div class="upload-hint">点击或拖拽文件到此处</div>
-        <img v-if="irImage" class="upload-preview" :src="irImage" alt="红外图像预览" />
+        <template v-if="!irImage">
+          <i class="fas fa-thermometer-half upload-icon"></i>
+          <div class="upload-text">上传红外图像</div>
+          <div class="upload-hint">点击或拖拽文件到此处</div>
+        </template>
+        <img v-else class="upload-preview" :src="irImage" alt="红外图像预览" />
         <input ref="irInput" type="file" accept="image/*" class="hidden" @change="onFileChange('ir', $event)" />
       </div>
 
@@ -29,10 +31,12 @@
         @dragleave.prevent="dragState.vi = false"
         @drop.prevent="onDrop('vi', $event)"
       >
-        <i class="fas fa-eye upload-icon"></i>
-        <div class="upload-text">上传可见光图像</div>
-        <div class="upload-hint">点击或拖拽文件到此处</div>
-        <img v-if="viImage" class="upload-preview" :src="viImage" alt="可见光图像预览" />
+        <template v-if="!viImage">
+          <i class="fas fa-eye upload-icon"></i>
+          <div class="upload-text">上传可见光图像</div>
+          <div class="upload-hint">点击或拖拽文件到此处</div>
+        </template>
+        <img v-else class="upload-preview" :src="viImage" alt="可见光图像预览" />
         <input ref="viInput" type="file" accept="image/*" class="hidden" @change="onFileChange('vi', $event)" />
       </div>
     </div>
@@ -68,35 +72,80 @@
     <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
 
     <div class="result-section">
-      <div class="result-container">
-        <h3>融合结果</h3>
-        <div v-if="!fusedImage" class="result-placeholder">
-          <i class="fas fa-image"></i>
-          融合后的图像将显示在此处
+      <h3>融合结果</h3>
+      <div class="stages-container">
+        <div class="stage-container">
+          <h4>第一阶段：输入图像</h4>
+          <div v-if="!irImage || !viImage" class="result-placeholder">
+            <i class="fas fa-image"></i>
+            请上传红外和可见光图像
+          </div>
+          <div v-else class="input-images-container">
+            <div class="input-image-wrapper">
+              <img class="input-image" :src="irImage" alt="红外输入图像" />
+              <div class="input-image-label">红外图像</div>
+            </div>
+            <div class="input-image-wrapper">
+              <img class="input-image" :src="viImage" alt="可见光输入图像" />
+              <div class="input-image-label">可见光图像</div>
+            </div>
+          </div>
         </div>
-        <img v-else class="result-image" :src="fusedImage" alt="融合结果" />
+        <div class="stage-container">
+          <h4>第二阶段：初步融合</h4>
+          <div v-if="!stage2Image" class="result-placeholder">
+            <i class="fas fa-image"></i>
+            第二阶段结果将显示在此处
+          </div>
+          <img v-else class="result-image" :src="stage2Image" alt="第二阶段结果" />
+        </div>
+        <div class="stage-container">
+          <h4>第三阶段：最终融合</h4>
+          <div v-if="!stage3Image" class="result-placeholder">
+            <i class="fas fa-image"></i>
+            第三阶段结果将显示在此处
+          </div>
+          <img v-else class="result-image" :src="stage3Image" alt="第三阶段结果" />
+          <button class="btn download-btn" :disabled="!stage3Image" @click="downloadResult">
+            <i class="fas fa-download"></i>
+            <span>下载结果</span>
+          </button>
+        </div>
+      </div>
 
-        <button class="btn download-btn" :disabled="!fusedImage" @click="downloadResult">
-          <i class="fas fa-download"></i>
-          <span>下载结果</span>
-        </button>
+      <div v-if="metricsReady" class="metrics-panel">
+        <div class="metric">
+          <div class="metric-value">{{ metrics.psnr.toFixed(1) }}</div>
+          <div class="metric-label">PSNR (dB)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">{{ metrics.ssim.toFixed(3) }}</div>
+          <div class="metric-label">SSIM</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">{{ metrics.detection.toFixed(0) }}%</div>
+          <div class="metric-label">检测提升</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">{{ metrics.time.toFixed(1) }}s</div>
+          <div class="metric-label">处理时间</div>
+        </div>
+      </div>
 
-        <div v-if="metricsReady" class="metrics-panel">
+      <div v-if="advancedMetricsReady" class="advanced-metrics-panel">
+        <h4>高级指标</h4>
+        <div class="metrics-panel">
           <div class="metric">
-            <div class="metric-value">{{ metrics.psnr.toFixed(1) }}</div>
-            <div class="metric-label">PSNR (dB)</div>
+            <div class="metric-value">{{ advancedMetrics.entropy_preservation.toFixed(3) }}</div>
+            <div class="metric-label">熵保持</div>
           </div>
           <div class="metric">
-            <div class="metric-value">{{ metrics.ssim.toFixed(3) }}</div>
-            <div class="metric-label">SSIM</div>
+            <div class="metric-value">{{ advancedMetrics.gradient_preservation.toFixed(3) }}</div>
+            <div class="metric-label">梯度保持</div>
           </div>
           <div class="metric">
-            <div class="metric-value">{{ metrics.detection.toFixed(0) }}%</div>
-            <div class="metric-label">检测提升</div>
-          </div>
-          <div class="metric">
-            <div class="metric-value">{{ metrics.time.toFixed(1) }}s</div>
-            <div class="metric-label">处理时间</div>
+            <div class="metric-value">{{ advancedMetrics.contrast_enhancement.toFixed(3) }}</div>
+            <div class="metric-label">对比度增强</div>
           </div>
         </div>
       </div>
@@ -111,23 +160,27 @@ const irInput = ref(null);
 const viInput = ref(null);
 const irImage = ref(null);
 const viImage = ref(null);
-const fusedImage = ref(null);
+const stage1Image = ref(null);
+const stage2Image = ref(null);
+const stage3Image = ref(null);
 const processing = ref(false);
 const progress = ref(0);
 const errorMessage = ref('');
 const successMessage = ref('');
 const dragState = ref({ ir: false, vi: false });
 const metrics = ref({ psnr: null, ssim: null, detection: null, time: null });
+const advancedMetrics = ref({ entropy_preservation: null, gradient_preservation: null, contrast_enhancement: null });
 let progressTimer = null;
 
 const ready = computed(() => !!irImage.value && !!viImage.value);
 const statusText = computed(() => {
   if (processing.value) return '融合处理中，请稍候';
   if (!ready.value) return '请上传两张图像';
-  if (fusedImage.value) return '融合完成，可下载结果';
+  if (stage3Image.value) return '融合完成，可下载结果';
   return '已就绪，点击开始融合';
 });
 const metricsReady = computed(() => Object.values(metrics.value).every((v) => typeof v === 'number'));
+const advancedMetricsReady = computed(() => Object.values(advancedMetrics.value).every((v) => typeof v === 'number'));
 
 function triggerFile(kind) {
   if (kind === 'ir') irInput.value?.click();
@@ -181,9 +234,13 @@ async function startFusion() {
   startProgressAnimation();
 
   try {
-    const { dataUrl, metrics: resultMetrics } = await runFusion(irImage.value, viImage.value);
-    fusedImage.value = dataUrl;
+    const { stage2Url, stage3Url, metrics: resultMetrics, advancedMetrics: resultAdvancedMetrics } = await runFusion(irImage.value, viImage.value);
+    stage2Image.value = stage2Url;
+    stage3Image.value = stage3Url;
     metrics.value = resultMetrics;
+    if (resultAdvancedMetrics) {
+      advancedMetrics.value = resultAdvancedMetrics;
+    }
     progress.value = 100;
     successMessage.value = '融合完成，您可以下载结果';
   } catch (err) {
@@ -211,26 +268,86 @@ function stopProgressAnimation() {
 }
 
 async function runFusion(irSrc, viSrc) {
-  const [ir, vi] = await Promise.all([loadImage(irSrc), loadImage(viSrc)]);
-  const width = Math.max(ir.width, vi.width);
-  const height = Math.max(ir.height, vi.height);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(vi, 0, 0, width, height);
-  ctx.globalAlpha = 0.55;
-  ctx.drawImage(ir, 0, 0, width, height);
-  ctx.globalAlpha = 1;
+  try {
+    // 将dataURL转换为Blob
+    const irBlob = await dataURLToBlob(irSrc);
+    const viBlob = await dataURLToBlob(viSrc);
 
-  const dataUrl = canvas.toDataURL('image/png');
-  const resultMetrics = {
-    psnr: 30 + Math.random() * 8,
-    ssim: 0.87 + Math.random() * 0.08,
-    detection: 15 + Math.random() * 18,
-    time: 0.8 + Math.random() * 1.4
-  };
-  return { dataUrl, metrics: resultMetrics };
+    // 1. 上传图像
+    const uploadForm = new FormData();
+    uploadForm.append('ir_image', irBlob, 'ir_image.png');
+    uploadForm.append('vi_image', viBlob, 'vi_image.png');
+
+    const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+      method: 'POST',
+      body: uploadForm
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('上传失败: ' + uploadResponse.statusText);
+    }
+
+    const uploadData = await uploadResponse.json();
+    if (!uploadData.success) {
+      throw new Error('上传失败: ' + uploadData.error);
+    }
+
+    const sessionId = uploadData.session_id;
+
+    // 2. 处理融合
+    const processResponse = await fetch('http://localhost:5000/api/process', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ session_id: sessionId })
+    });
+
+    if (!processResponse.ok) {
+      throw new Error('处理失败: ' + processResponse.statusText);
+    }
+
+    const processData = await processResponse.json();
+    if (!processData.success) {
+      throw new Error('处理失败: ' + processData.error);
+    }
+
+    // 3. 构建结果图像URL
+    const stage2Url = `http://localhost:5000/api/result/${sessionId}_stage2.png`;
+    const stage3Url = `http://localhost:5000/api/result/${sessionId}_fused.png`;
+
+    // 4. 构建返回数据
+    const resultMetrics = {
+      psnr: processData.metrics.psnr,
+      ssim: processData.metrics.ssim,
+      detection: processData.metrics.detection_improvement,
+      time: processData.metrics.processing_time
+    };
+
+    // 5. 构建高级指标数据
+    const resultAdvancedMetrics = {
+      entropy_preservation: processData.metrics.entropy_preservation,
+      gradient_preservation: processData.metrics.gradient_preservation,
+      contrast_enhancement: processData.metrics.contrast_enhancement
+    };
+
+    return { stage2Url, stage3Url, metrics: resultMetrics, advancedMetrics: resultAdvancedMetrics };
+  } catch (err) {
+    console.error('API调用失败:', err);
+    throw new Error('后端服务异常，请确保后端服务已启动并正常运行');
+  }
+}
+
+function dataURLToBlob(dataUrl) {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', dataUrl);
+    xhr.responseType = 'blob';
+    xhr.onload = () => {
+      resolve(xhr.response);
+    };
+    xhr.send();
+  });
 }
 
 function loadImage(src) {
@@ -243,10 +360,10 @@ function loadImage(src) {
 }
 
 function downloadResult() {
-  if (!fusedImage.value) return;
+  if (!stage3Image.value) return;
   const link = document.createElement('a');
   link.download = 'TarDAL_fused.png';
-  link.href = fusedImage.value;
+  link.href = stage3Image.value;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -261,8 +378,10 @@ function clearAll() {
 }
 
 function resetResult() {
-  fusedImage.value = null;
+  stage2Image.value = null;
+  stage3Image.value = null;
   metrics.value = { psnr: null, ssim: null, detection: null, time: null };
+  advancedMetrics.value = { entropy_preservation: null, gradient_preservation: null, contrast_enhancement: null };
 }
 
 onBeforeUnmount(() => stopProgressAnimation());
@@ -388,16 +507,259 @@ onBeforeUnmount(() => stopProgressAnimation());
 .error-message { background: rgba(231, 76, 60, 0.1); border-color: rgba(231, 76, 60, 0.35); color: #ff7b7b; }
 .success-message { background: rgba(0, 212, 142, 0.1); border-color: rgba(0, 212, 142, 0.35); color: #00d48e; }
 
-.result-section { padding: 6px 0 0; }
-.result-container {
+.result-section { margin-top: 14px; }
+
+.result-section h3 {
+  color: #4facfe;
+  font-size: 1.2rem;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.stages-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+  justify-content: center;
+}
+
+.stage-container {
+  flex: 1;
+  min-width: 280px;
+  max-width: 350px;
   background: rgba(0, 20, 40, 0.55);
   border-radius: 15px;
   padding: 18px;
   text-align: center;
   border: 1px solid rgba(100, 150, 255, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.result-container h3 { color: #4facfe; font-size: 1.2rem; margin-bottom: 12px; }
+.stage-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  border-color: rgba(100, 150, 255, 0.4);
+}
+
+.stage-container h4 {
+  color: #a0c8ff;
+  font-size: 1rem;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.advanced-metrics-panel {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(100, 150, 255, 0.2);
+}
+
+.advanced-metrics-panel h4 {
+  color: #4facfe;
+  font-size: 1rem;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.advanced-metrics-panel .metrics-panel {
+  margin-top: 12px;
+}
+
+/* 第一梯队：核心创新指标 */
+.core-metrics-panel {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background: rgba(0, 30, 60, 0.7);
+  border-radius: 15px;
+  border: 1px solid rgba(100, 150, 255, 0.3);
+  width: 100%;
+}
+
+.core-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 15px;
+}
+
+.core-metric-item {
+  background: rgba(16, 32, 64, 0.8);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  border: 1px solid rgba(100, 150, 255, 0.25);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.core-metric-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 212, 142, 0.4);
+  border-color: rgba(0, 212, 142, 0.4);
+}
+
+.core-metric-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #00d48e;
+  margin-bottom: 8px;
+}
+
+.core-metric-value .arrow {
+  font-size: 1.8rem;
+  margin-left: 5px;
+}
+
+.core-metric-label {
+  font-size: 1.05rem;
+  color: #a0c8ff;
+  margin-bottom: 10px;
+}
+
+.precision-metric-value {
+  font-size: 2.0rem;
+  font-weight: 700;
+  color: #00d48e;
+  margin-bottom: 8px;
+}
+
+.core-metric-stars {
+  margin-top: 10px;
+}
+
+/* 第二梯队：图像质量指标 */
+.quality-metrics-panel {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  padding: 15px;
+  background: rgba(0, 25, 50, 0.7);
+  border-radius: 15px;
+  border: 1px solid rgba(100, 150, 255, 0.2);
+  width: 100%;
+}
+
+.quality-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-top: 12px;
+}
+
+.quality-metric-item {
+  background: rgba(16, 32, 64, 0.8);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  border: 1px solid rgba(100, 150, 255, 0.25);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.quality-metric-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #00f2fe;
+  margin-bottom: 6px;
+}
+
+.quality-metric-label {
+  font-size: 1rem;
+  color: #a0c8ff;
+  margin-bottom: 8px;
+}
+
+.quality-metric-quality {
+  font-size: 0.9rem;
+  color: #4facfe;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.quality-metric-stars {
+  margin-top: 8px;
+}
+
+/* 第三梯队：技术指标 */
+.tech-metrics-panel {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  padding: 12px;
+  background: rgba(0, 20, 40, 0.7);
+  border-radius: 15px;
+  border: 1px solid rgba(100, 150, 255, 0.15);
+  width: 100%;
+}
+
+.tech-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.tech-metric-item {
+  background: rgba(16, 32, 64, 0.8);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid rgba(100, 150, 255, 0.2);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.tech-metric-value {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #a0c8ff;
+  margin-bottom: 4px;
+}
+
+.tech-metric-label {
+  font-size: 0.85rem;
+  color: #7090cc;
+  margin-bottom: 6px;
+}
+
+.tech-metric-stars {
+  margin-top: 6px;
+}
+
+/* 星级评分样式 */
+.star {
+  font-size: 1rem;
+  color: #f0c420;
+  margin: 0 2px;
+}
+
+/* 响应式布局 */
+@media (max-width: 1024px) {
+  .core-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .quality-metrics-grid,
+  .tech-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .core-metric-value {
+    font-size: 2.0rem;
+  }
+  
+  .precision-metric-value {
+    font-size: 1.6rem;
+  }
+  
+  .quality-metric-value {
+    font-size: 1.4rem;
+  }
+  
+  .tech-metric-value {
+    font-size: 1.0rem;
+  }
+}
 .result-placeholder { color: #7090cc; font-size: 1rem; padding: 40px 10px; display: grid; place-items: center; gap: 10px; }
 .result-placeholder i { font-size: 2.4rem; }
 .result-image { max-width: 100%; max-height: 480px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); display: block; margin: 0 auto; }
@@ -429,9 +791,49 @@ onBeforeUnmount(() => stopProgressAnimation());
 .fade-enter-active, .fade-leave-active { transition: opacity 0.25s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
+/* 输入图像横向排列样式 */
+.input-images-container {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.input-image-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 48%;
+}
+
+.input-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  display: block;
+  object-fit: contain;
+}
+
+.input-image-label {
+  color: #a0c8ff;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
 @media (max-width: 720px) {
   .control-panel { flex-direction: column; align-items: stretch; }
   .btn { width: 100%; justify-content: center; }
   .status-info { width: 100%; justify-content: center; }
+  .input-images-container {
+    flex-direction: column;
+  }
+  .input-image-wrapper {
+    max-width: 100%;
+  }
 }
 </style>
