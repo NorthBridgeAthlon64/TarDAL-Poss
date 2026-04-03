@@ -29,9 +29,11 @@ sys.path.insert(0, str(project_root))
 # 导入TarDAL相关模块
 from config import from_dict
 from pipeline.fuse import Fuse
+from pipeline.saliency import Saliency
 
 # 配置日志
-logging.basicConfig(
+logging.\
+    basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(message)s'
 )
@@ -60,6 +62,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp'}
 
 # 全局变量存储模型
 tardal_model = None
+saliency_model = None
 model_config = None
 
 def allowed_file(filename):
@@ -67,8 +70,8 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def init_tardal_model():
-    """初始化TarDAL模型"""
-    global tardal_model, model_config
+    """初始化TarDAL模型（融合 + 显著性/人体轮廓）"""
+    global tardal_model, saliency_model, model_config
     
     try:
         logger.info("正在初始化TarDAL模型...")
@@ -82,8 +85,11 @@ def init_tardal_model():
         
         # 初始化融合模型
         tardal_model = Fuse(model_config, mode='inference')
+        # 初始化显著性模型（从红外图提取人体/前景轮廓，用于第二阶段展示）
+        saliency_url = config_dict.get('saliency', {}).get('url') or 'https://github.com/JinyuanLiu-CV/TarDAL/releases/download/v1.0.0/mask-u2.pth'
+        saliency_model = Saliency(url=saliency_url)
         
-        logger.info("TarDAL模型初始化成功")
+        logger.info("TarDAL模型与显著性模型初始化成功")
         return True
         
     except Exception as e:
@@ -207,8 +213,8 @@ def calculate_advanced_metrics(ir_tensor, vi_tensor, fused_tensor):
         vi_entropy = calculate_entropy(vi_tensor)
         fused_entropy = calculate_entropy(fused_tensor)
         
-        # 熵保持率（融合图像相对于输入图像的信息保持程度，不超过1.0）
-        entropy_preservation = min(fused_entropy, max(ir_entropy, vi_entropy)) / max(ir_entropy, vi_entropy)
+        # 熵保持率
+        entropy_preservation = fused_entropy / max(ir_entropy, vi_entropy)
         metrics['entropy_preservation'] = float(entropy_preservation)
         
         # 2. 梯度保持
@@ -222,9 +228,9 @@ def calculate_advanced_metrics(ir_tensor, vi_tensor, fused_tensor):
         vi_grad_mag = torch.sqrt(vi_grad[:, :, 0] ** 2 + vi_grad[:, :, 1] ** 2).mean()
         fused_grad_mag = torch.sqrt(fused_grad[:, :, 0] ** 2 + fused_grad[:, :, 1] ** 2).mean()
         
-        # 梯度保持率（融合图像相对于输入图像的边缘信息保持程度，不超过1.0）
-        gradient_preservation = min(fused_grad_mag, max(ir_grad_mag, vi_grad_mag)) / max(ir_grad_mag, vi_grad_mag)
-        metrics['gradient_preservation'] = float(gradient_preservation)
+        # 梯度保持率
+        gradient_preservation = float(fused_grad_mag / max(ir_grad_mag, vi_grad_mag))
+        metrics['gradient_preservation'] = gradient_preservation
         
         # 3. 对比度
         ir_std = torch.std(ir_tensor)
@@ -323,45 +329,34 @@ def process_image_pair(ir_path, vi_path):
         vi_batch = vi_batch.to(tardal_model.device)
         cbcr_batch = cbcr_batch.to(tardal_model.device)
         
-        # 执行TarDAL融合
+        # 第二阶段：从红外图用显著性网络提取人体/前景轮廓（单通道，背景黑）
+        logger.info("第二阶段：从红外图提取人体轮廓...")
+        stage2_image = saliency_model.inference_single(ir_tensor)
+        
+        # 第三阶段：TarDAL 融合得到最终图像
         logger.info("执行TarDAL融合算法...")
         with torch.no_grad():
-            fused_tensor, intermediate_tensor = tardal_model.inference(ir=ir_batch, vi=vi_batch, return_intermediate=True)
+            fused_tensor = tardal_model.inference(ir=ir_batch, vi=vi_batch)
         
-        # 处理初步融合结果（将32通道的特征图转换为单通道灰度图像）
-        # 使用特征图的平均值作为初步融合结果
-        intermediate_final = torch.mean(intermediate_tensor, dim=1, keepdim=True)  # [B, C, H, W] -> [B, 1, H, W]
+        def tensor_to_image(y_tensor):
+            """将单通道 Y [1,1,H,W] 转为可保存的 numpy 图像，与 model_config 一致。"""
+            if model_config.inference.grayscale is False:
+                ycbcr = torch.cat([y_tensor, cbcr_batch], dim=1)
+                rgb = ycbcr_to_rgb(ycbcr)
+                img = rgb.squeeze(0).cpu().numpy()
+            else:
+                img = y_tensor.squeeze(0).cpu().numpy()
+            if img.ndim == 3 and img.shape[0] in [1, 3]:
+                if img.shape[0] == 3:
+                    img = img.transpose(1, 2, 0)
+                else:
+                    img = img.squeeze(0)
+            img = np.clip(img, 0, 1)
+            return (img * 255.0).astype(np.uint8)
         
-        # 转换初步融合结果为numpy数组
-        intermediate_image = intermediate_final.squeeze(0).squeeze(0).cpu().numpy()
-        
-        # 确保值在[0,1]范围内，然后转换为[0,255]
-        intermediate_image = np.clip(intermediate_image, 0, 1)
-        intermediate_image = (intermediate_image * 255.0).astype(np.uint8)
-        
-        # 重新着色（如果是彩色图像）
-        if model_config.inference.grayscale is False:
-            # 将融合的Y通道与原始的CbCr通道结合
-            fused_ycbcr = torch.cat([fused_tensor, cbcr_batch], dim=1)
-            # 转换为RGB
-            fused_rgb = ycbcr_to_rgb(fused_ycbcr)
-            fused_final = fused_rgb
-        else:
-            fused_final = fused_tensor
-        
-        # 转换为numpy数组用于保存
-        fused_image = fused_final.squeeze(0).cpu().numpy()  # 移除batch维度
-        
-        # 如果是彩色图像，调整维度顺序 [C, H, W] -> [H, W, C]
-        if fused_image.ndim == 3 and fused_image.shape[0] in [1, 3]:
-            if fused_image.shape[0] == 3:  # RGB
-                fused_image = fused_image.transpose(1, 2, 0)  # [H, W, 3]
-            else:  # 灰度
-                fused_image = fused_image.squeeze(0)  # [H, W]
-        
-        # 确保值在[0,1]范围内，然后转换为[0,255]
-        fused_image = np.clip(fused_image, 0, 1)
-        fused_image = (fused_image * 255.0).astype(np.uint8)
+        # Tanh 输出 [-1,1]，转为 [0,1] 再保存
+        fused_tensor = (fused_tensor + 1.0) * 0.5
+        fused_image = tensor_to_image(fused_tensor)
         
         # 计算处理时间
         processing_time = time.time() - start_time
@@ -383,8 +378,8 @@ def process_image_pair(ir_path, vi_path):
         
         return {
             'success': True,
+            'stage2_image': stage2_image,
             'fused_image': fused_image,
-            'intermediate_image': intermediate_image,
             'metrics': {
                 'psnr': round(psnr_value, 2),
                 'ssim': round(ssim_value, 3),
@@ -512,33 +507,18 @@ def process_images():
         if not result['success']:
             return jsonify(result), 500
         
-        # 保存融合结果
-        result_filename = f"{session_id}_fused.png"
-        result_path = RESULT_FOLDER / result_filename
-        
+        # 保存第二阶段（目标显著性轮廓）与第三阶段（TarDAL 融合图）
+        # 融合图 = 单通道灰度图：保留红外目标显著性 + 可见光背景纹理（目标像红外，背景像可见光）
+        stage2_image = Image.fromarray(result['stage2_image'])
         fused_image = Image.fromarray(result['fused_image'])
-        fused_image.save(str(result_path))
-        
-        logger.info(f"融合结果已保存: {result_filename}")
-        
-        # 保存阶段1和阶段2的图像
-        # 阶段1：红外图像
-        stage1_filename = f"{session_id}_stage1.png"
-        stage1_path = RESULT_FOLDER / stage1_filename
-        
-        # 读取红外图像并保存
-        ir_image = Image.open(str(ir_path))
-        ir_image.save(str(stage1_path))
-        
-        # 阶段2：初步融合结果（算法中间结果）
         stage2_filename = f"{session_id}_stage2.png"
         stage2_path = RESULT_FOLDER / stage2_filename
+        stage2_image.save(str(stage2_path))
+        result_filename = f"{session_id}_fused.png"
+        result_path = RESULT_FOLDER / result_filename
+        fused_image.save(str(result_path))
         
-        # 保存算法的初步融合结果
-        intermediate_image = Image.fromarray(result['intermediate_image'])
-        intermediate_image.save(str(stage2_path))
-        
-        logger.info(f"阶段图像已保存: {stage1_filename}, {stage2_filename}")
+        logger.info(f"融合结果已保存: {stage2_filename}, {result_filename}")
         
         return jsonify({
             'success': True,

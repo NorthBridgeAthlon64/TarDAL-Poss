@@ -3,8 +3,9 @@ import socket
 import sys
 import warnings
 from pathlib import Path
-
 import cv2
+import numpy as np
+import torch
 import torch.hub
 from kornia import image_to_tensor, tensor_to_image
 from torchvision.transforms import Resize, Compose, Normalize
@@ -70,6 +71,26 @@ class Saliency:
             mask = (mask - mask.min()) / (mask.max() - mask.min())
             mask = reverse_fn(mask).squeeze()
             cv2.imwrite(str(dst / img_p.name), tensor_to_image(mask) * 255)
+
+    @torch.inference_mode()
+    def inference_single(self, ir_tensor: torch.Tensor) -> np.ndarray:
+        """
+        对单张红外图做显著性检测，得到人体/前景轮廓单通道图（背景黑、前景亮）。
+        ir_tensor: [1, H, W] 或 [H, W]，值域 [0, 1]
+        返回: [H, W] uint8，0=背景黑，255=前景/人体轮廓
+        """
+        self.net.eval()
+        if ir_tensor.dim() == 2:
+            ir_tensor = ir_tensor.unsqueeze(0)
+        if ir_tensor.dim() == 3 and ir_tensor.shape[0] != 1:
+            ir_tensor = ir_tensor.unsqueeze(0)
+        orig_shape = ir_tensor.shape[-2:]
+        x = self.transform_fn(ir_tensor).to(self.device)
+        mask = self.net(x.unsqueeze(0))[0]
+        mask = (mask - mask.min()) / (mask.max() - mask.min() + 1e-8)
+        reverse_fn = Resize(size=orig_shape)
+        mask = reverse_fn(mask.squeeze(0).cpu()).squeeze()
+        return (mask.numpy() * 255).astype(np.uint8)
 
     @staticmethod
     def _imread(img_p: str | Path):

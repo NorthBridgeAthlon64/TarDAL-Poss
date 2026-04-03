@@ -92,20 +92,22 @@
           </div>
         </div>
         <div class="stage-container">
-          <h4>第二阶段：初步融合</h4>
+          <h4>第二阶段：目标显著性</h4>
+          <p class="stage-desc">从红外图提取的目标/人体轮廓（单通道，背景黑）</p>
           <div v-if="!stage2Image" class="result-placeholder">
             <i class="fas fa-image"></i>
             第二阶段结果将显示在此处
           </div>
-          <img v-else class="result-image" :src="stage2Image" alt="第二阶段结果" />
+          <img v-else class="result-image" :src="stage2Image" alt="第二阶段：目标显著性" />
         </div>
         <div class="stage-container">
-          <h4>第三阶段：最终融合</h4>
+          <h4>第三阶段：TarDAL 融合图</h4>
+          <p class="stage-desc">单通道灰度图：目标像红外（突出），背景像可见光（纹理清晰）</p>
           <div v-if="!stage3Image" class="result-placeholder">
             <i class="fas fa-image"></i>
             第三阶段结果将显示在此处
           </div>
-          <img v-else class="result-image" :src="stage3Image" alt="第三阶段结果" />
+          <img v-else class="result-image" :src="stage3Image" alt="第三阶段：TarDAL 融合图" />
           <button class="btn download-btn" :disabled="!stage3Image" @click="downloadResult">
             <i class="fas fa-download"></i>
             <span>下载结果</span>
@@ -545,7 +547,13 @@ onBeforeUnmount(() => stopProgressAnimation());
 .stage-container h4 {
   color: #a0c8ff;
   font-size: 1rem;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
+}
+.stage-container .stage-desc {
+  font-size: 0.8rem;
+  color: rgba(160, 200, 255, 0.75);
+  margin-bottom: 10px;
+  line-height: 1.35;
   font-weight: 500;
 }
 

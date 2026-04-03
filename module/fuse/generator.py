@@ -48,21 +48,11 @@ class Generator(nn.Module):
             ),
         )
 
-    def forward(self, ir: Tensor, vi: Tensor, return_intermediate: bool = False) -> Tensor | tuple[Tensor, Tensor]:
+    def forward(self, ir: Tensor, vi: Tensor) -> Tensor:
         src = torch.cat([ir, vi], dim=1)
         x = self.encoder(src)
         for i in range(self.depth):
             t = self.dense[i](x)
             x = torch.cat([x, t], dim=1)
-        
-        # 获取fuse模块的中间结果
-        # fuse模块有4个Sequential层，我们取第三个层的输出作为初步融合结果
-        fuse_input = x
-        intermediate = self.fuse[0](fuse_input)  # 第一个层
-        intermediate = self.fuse[1](intermediate)  # 第二个层
-        intermediate = self.fuse[2](intermediate)  # 第三个层 - 作为初步融合结果
-        fus = self.fuse[3](intermediate)  # 第四个层 - 最终融合结果
-        
-        if return_intermediate:
-            return fus, intermediate
+        fus = self.fuse(x)
         return fus

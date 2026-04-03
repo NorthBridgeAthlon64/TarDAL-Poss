@@ -116,10 +116,10 @@ class Fuse:
         return fus
 
     @torch.inference_mode()
-    def inference(self, ir: Tensor, vi: Tensor, return_intermediate: bool = False) -> Tensor | tuple[Tensor, Tensor]:
+    def inference(self, ir: Tensor, vi: Tensor) -> Tensor:
         if self.config.inference.use_eval:
             self.generator.eval()
-        fus = self.generator(ir, vi, return_intermediate=return_intermediate)
+        fus = self.generator(ir, vi)
         return fus
 
     def criterion_dis_t(self, ir: Tensor, vi: Tensor, mk: Tensor) -> Tensor:
