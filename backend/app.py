@@ -331,9 +331,11 @@ def process_image_pair(ir_path, vi_path):
         
         # 第二阶段：从红外图用显著性网络提取人体/前景轮廓（单通道，背景黑）
         logger.info("第二阶段：从红外图提取人体轮廓...")
-        stage2_image = saliency_model.inference_single(ir_tensor)
+        stage2_image = saliency_model.inference_single(ir_tensor)  # numpy, [H, W], 0~255
+        # 将显著性图转为 [1,1,H,W] 的归一化 mask，用于第三阶段的“只增强目标”融合
+        stage2_mask = torch.from_numpy(stage2_image.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(tardal_model.device)
         
-        # 第三阶段：TarDAL 融合得到最终图像
+        # 第三阶段：TarDAL 融合得到基础融合结果
         logger.info("执行TarDAL融合算法...")
         with torch.no_grad():
             fused_tensor = tardal_model.inference(ir=ir_batch, vi=vi_batch)
@@ -354,19 +356,23 @@ def process_image_pair(ir_path, vi_path):
             img = np.clip(img, 0, 1)
             return (img * 255.0).astype(np.uint8)
         
-        # Tanh 输出 [-1,1]，转为 [0,1] 再保存
+        # Tanh 输出 [-1,1]，转为 [0,1]
         fused_tensor = (fused_tensor + 1.0) * 0.5
-        fused_image = tensor_to_image(fused_tensor)
+        # 显著性引导的二次融合：只在目标区域增强 TarDAL 输出，背景更多保持可见光亮度
+        alpha = 0.8  # 目标区域融合权重，可根据视觉效果微调
+        fused_final = (1.0 - alpha * stage2_mask) * vi_batch + alpha * stage2_mask * fused_tensor
+        fused_image = tensor_to_image(fused_final)
         
         # 计算处理时间
         processing_time = time.time() - start_time
         
-        # 计算真实的质量指标
-        psnr_value = calculate_psnr(ir_tensor, vi_tensor, fused_tensor.squeeze(0))
-        ssim_value = calculate_ssim(ir_tensor, vi_tensor, fused_tensor.squeeze(0))
+        # 计算真实的质量指标（基于最终融合结果）
+        fused_for_metrics = fused_final.squeeze(0).detach().cpu()
+        psnr_value = calculate_psnr(ir_tensor, vi_tensor, fused_for_metrics)
+        ssim_value = calculate_ssim(ir_tensor, vi_tensor, fused_for_metrics)
         
         # 计算高级指标
-        advanced_metrics = calculate_advanced_metrics(ir_tensor, vi_tensor, fused_tensor.squeeze(0))
+        advanced_metrics = calculate_advanced_metrics(ir_tensor, vi_tensor, fused_for_metrics)
         
         # 计算检测提升估算
         detection_improvement = calculate_detection_improvement(ir_path, vi_path, None)
