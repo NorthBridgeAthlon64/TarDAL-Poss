@@ -231,12 +231,12 @@ import { RouterLink } from 'vue-router';
   overflow: hidden;
   border-radius: 18px;
   border: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(20, 32, 64, 0.9), rgba(16, 30, 56, 0.8));
+  background: var(--surface-strong);
   padding: clamp(18px, 4vw, 28px);
   display: grid;
   grid-template-columns: 1.3fr 0.7fr;
   gap: 18px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 20px 60px var(--shadow-color);
 }
 
 .hero-copy h1 {
@@ -276,7 +276,7 @@ import { RouterLink } from 'vue-router';
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   font-weight: 600;
-  color: #f0f5ff;
+  color: var(--text-main);
 }
 
 .hero-visual {
@@ -290,7 +290,11 @@ import { RouterLink } from 'vue-router';
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(79, 209, 197, 0.55), rgba(12, 24, 46, 0.05));
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary) 70%, white),
+    color-mix(in srgb, var(--bg) 20%, transparent)
+  );
   filter: blur(2px);
   animation: float 6s ease-in-out infinite;
 }
@@ -299,7 +303,11 @@ import { RouterLink } from 'vue-router';
   position: absolute;
   width: 120px;
   height: 120px;
-  background: radial-gradient(circle, rgba(122, 165, 255, 0.6), rgba(12, 24, 46, 0.05));
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--secondary) 72%, white),
+    color-mix(in srgb, var(--bg) 20%, transparent)
+  );
   animation-duration: 7s;
   animation-delay: 1s;
   right: 14%;
@@ -309,7 +317,7 @@ import { RouterLink } from 'vue-router';
   position: absolute;
   inset: 8% 14%;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
   backdrop-filter: blur(8px);
 }
 
@@ -362,7 +370,7 @@ import { RouterLink } from 'vue-router';
 }
 
 .panel p {
-  color: #dfe6ff;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -461,7 +469,7 @@ import { RouterLink } from 'vue-router';
 }
 
 .cap-card p {
-  color: #dfe6ff;
+  color: var(--text-secondary);
 }
 
 .flow {
@@ -524,7 +532,7 @@ import { RouterLink } from 'vue-router';
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #dfe8ff;
+  color: var(--text-main);
 }
 
 .timeline {

@@ -1,0 +1,31 @@
+name: Deploy Vue Subfolder to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+    # 只有当 client 文件夹下的代码变动时才触发
+    paths:
+      - 'frontend/**' 
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install and Build
+        # 使用 defaults 或 working-directory 切换到 client 文件夹
+        working-directory: ./client 
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: frontend/dist # 注意：这里的路径是相对于根目录的
+          branch: gh-pages

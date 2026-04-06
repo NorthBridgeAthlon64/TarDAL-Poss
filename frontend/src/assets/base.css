@@ -3,18 +3,48 @@
   --bg: #040915;
   --panel: rgba(15, 24, 46, 0.8);
   --panel-strong: rgba(17, 31, 60, 0.95);
+  --surface-strong: linear-gradient(135deg, rgba(14, 25, 46, 0.9), rgba(12, 28, 56, 0.85));
+  --surface-soft: rgba(255, 255, 255, 0.04);
   --primary: #4fd1c5;
   --primary-strong: #33c4b5;
   --secondary: #7aa5ff;
   --accent: #ffd166;
+  --text-main: #e8f0ff;
+  --text-secondary: #dfe6ff;
   --muted: #8ea4c8;
-  --border: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(151, 188, 255, 0.35);
+  --border-accent: rgba(79, 209, 197, 0.65);
+  --shadow-color: rgba(0, 0, 0, 0.35);
   --gradient: radial-gradient(circle at 20% 20%, rgba(79, 209, 197, 0.12), transparent 35%),
     radial-gradient(circle at 80% 0%, rgba(122, 165, 255, 0.12), transparent 30%),
     linear-gradient(135deg, #08162f 0%, #0c203e 45%, #0a132a 100%);
   font-family: 'Space Grotesk', 'Segoe UI', 'Microsoft YaHei', sans-serif;
   background: var(--gradient);
-  color: #e8f0ff;
+  color: var(--text-main);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #edf3fb;
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-strong: rgba(255, 255, 255, 0.97);
+  --surface-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(239, 246, 255, 0.95));
+  --surface-soft: rgba(16, 64, 117, 0.06);
+  --primary: #1674d2;
+  --primary-strong: #0f63bb;
+  --secondary: #1f5ea8;
+  --accent: #c99212;
+  --text-main: #10253c;
+  --text-secondary: #223a55;
+  --muted: #4f6783;
+  --border: rgba(16, 64, 117, 0.16);
+  --border-strong: rgba(22, 116, 210, 0.36);
+  --border-accent: rgba(22, 116, 210, 0.5);
+  --shadow-color: rgba(19, 45, 78, 0.16);
+  --gradient: radial-gradient(circle at 18% 16%, rgba(22, 116, 210, 0.12), transparent 40%),
+    radial-gradient(circle at 85% 5%, rgba(79, 209, 197, 0.12), transparent 35%),
+    linear-gradient(140deg, #f4f8ff 0%, #eaf2ff 42%, #ecf6ff 100%);
 }
 
 * {
@@ -26,7 +56,7 @@
 body {
   min-height: 100vh;
   background: var(--gradient);
-  color: #e8f0ff;
+  color: var(--text-main);
 }
 
 a {
@@ -40,4 +70,54 @@ button {
 
 #app {
   min-height: 100vh;
+}
+
+.card,
+.panel,
+.stat,
+.capabilities,
+.cap-card,
+.flow,
+.flow-step,
+.stack,
+.timeline,
+.faq,
+.faq-item,
+.cta,
+.topbar,
+.fusion-shell,
+.stage-container,
+.metric,
+.upload-area,
+.status-info,
+.progress-container {
+  border-color: var(--border);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 45%, transparent), 0 12px 30px var(--shadow-color);
+}
+
+:root[data-theme='light'] .card p,
+:root[data-theme='light'] .panel p,
+:root[data-theme='light'] .cap-card p,
+:root[data-theme='light'] .stage-container .stage-desc,
+:root[data-theme='light'] .result-placeholder,
+:root[data-theme='light'] .upload-text,
+:root[data-theme='light'] .upload-hint,
+:root[data-theme='light'] .input-image-label,
+:root[data-theme='light'] .quality-metric-label,
+:root[data-theme='light'] .metric-label,
+:root[data-theme='light'] .status-info,
+:root[data-theme='light'] .progress-header,
+:root[data-theme='light'] .brand-meta .subtitle {
+  color: var(--text-secondary) !important;
+}
+
+:root[data-theme='light'] .badge,
+:root[data-theme='light'] .pill,
+:root[data-theme='light'] .btn.ghost,
+:root[data-theme='light'] .nav-item {
+  color: var(--text-main) !important;
+}
+
+:root[data-theme='light'] .btn.ghost {
+  border-color: var(--border-strong) !important;
 }
