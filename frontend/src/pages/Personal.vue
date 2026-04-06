@@ -70,7 +70,7 @@ const scrollToDemo = () => demoRef.value?.scrollIntoView({ behavior: 'smooth', b
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 .card { padding: 16px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); box-shadow: 0 12px 30px rgba(0,0,0,0.24); display: grid; gap: 10px; }
 .card h3 { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; }
-.card p { color: #dfe6ff; }
+.card p { color: var(--text-secondary); }
 .card ul { list-style: none; display: grid; gap: 6px; color: var(--muted); padding: 0; }
 .card ul li::before { content: '• '; color: var(--primary); }
 .cta { margin-top: 6px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: linear-gradient(120deg, rgba(79,209,197,0.15), rgba(122,165,255,0.12)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }

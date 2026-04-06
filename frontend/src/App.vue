@@ -10,24 +10,30 @@
           <small class="subtitle">项目概览 | 场景蓝图 | 在线演示</small>
         </div>
       </div>
-      <nav class="nav">
-        <RouterLink class="nav-item" to="/" exact-active-class="active">
-          <i class="fas fa-home"></i>
-          <span>主页</span>
-        </RouterLink>
-        <RouterLink class="nav-item" to="/personal" exact-active-class="active">
-          <i class="fas fa-user"></i>
-          <span>个人</span>
-        </RouterLink>
-        <RouterLink class="nav-item" to="/commercial" exact-active-class="active">
-          <i class="fas fa-building"></i>
-          <span>商业</span>
-        </RouterLink>
-        <RouterLink class="nav-item" to="/national" exact-active-class="active">
-          <i class="fas fa-shield-alt"></i>
-          <span>国家</span>
-        </RouterLink>
-      </nav>
+      <div class="actions">
+        <button class="theme-toggle" type="button" @click="toggleTheme">
+          <i :class="theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon'"></i>
+          <span>{{ theme === 'dark' ? '浅色模式' : '深色模式' }}</span>
+        </button>
+        <nav class="nav">
+          <RouterLink class="nav-item" to="/" exact-active-class="active">
+            <i class="fas fa-home"></i>
+            <span>主页</span>
+          </RouterLink>
+          <RouterLink class="nav-item" to="/personal" exact-active-class="active">
+            <i class="fas fa-user"></i>
+            <span>个人</span>
+          </RouterLink>
+          <RouterLink class="nav-item" to="/commercial" exact-active-class="active">
+            <i class="fas fa-building"></i>
+            <span>商业</span>
+          </RouterLink>
+          <RouterLink class="nav-item" to="/national" exact-active-class="active">
+            <i class="fas fa-shield-alt"></i>
+            <span>国家</span>
+          </RouterLink>
+        </nav>
+      </div>
     </header>
 
     <main class="content">
@@ -38,6 +44,9 @@
 
 <script setup>
 import { RouterLink, RouterView } from 'vue-router';
+import { useTheme } from './composables/useTheme';
+
+const { theme, toggleTheme } = useTheme();
 </script>
 
 <style scoped>
@@ -83,9 +92,34 @@ import { RouterLink, RouterView } from 'vue-router';
   margin-bottom: 20px;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(14, 25, 46, 0.9), rgba(12, 28, 56, 0.85));
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  background: var(--surface-strong);
+  box-shadow: 0 20px 50px var(--shadow-color);
   backdrop-filter: blur(10px);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  padding: 10px 12px;
+  background: var(--surface-soft);
+  color: var(--text-main);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-1px);
 }
 
 .brand {
@@ -131,15 +165,15 @@ import { RouterLink, RouterView } from 'vue-router';
   padding: 10px 14px;
   border-radius: 12px;
   border: 1px solid transparent;
-  color: #dfe8ff;
+  color: var(--text-main);
   font-weight: 600;
   letter-spacing: 0.1px;
   transition: all 0.25s ease;
 }
 
 .nav-item:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border-strong);
+  background: var(--surface-soft);
   transform: translateY(-1px);
 }
 
@@ -159,6 +193,16 @@ import { RouterLink, RouterView } from 'vue-router';
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .theme-toggle {
+    justify-content: center;
   }
 
   .nav {

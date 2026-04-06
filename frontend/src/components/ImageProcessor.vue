@@ -50,6 +50,10 @@
         <i class="fas fa-trash"></i>
         <span>清空重置</span>
       </button>
+      <button class="btn download-btn" :disabled="!stage3Image || processing" @click="downloadResult">
+        <i class="fas fa-download"></i>
+        <span>下载结果</span>
+      </button>
       <div class="status-info">
         <i class="fas fa-info-circle"></i>
         <span>{{ statusText }}</span>
@@ -108,10 +112,6 @@
             第三阶段结果将显示在此处
           </div>
           <img v-else class="result-image" :src="stage3Image" alt="第三阶段：TarDAL 融合图" />
-          <button class="btn download-btn" :disabled="!stage3Image" @click="downloadResult">
-            <i class="fas fa-download"></i>
-            <span>下载结果</span>
-          </button>
         </div>
       </div>
 
@@ -391,33 +391,43 @@ onBeforeUnmount(() => stopProgressAnimation());
 
 <style scoped>
 .fusion-shell {
+  --fusion-bg: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg) 82%, var(--secondary)),
+    color-mix(in srgb, var(--bg) 86%, var(--primary))
+  );
+  --fusion-panel: color-mix(in srgb, var(--surface-soft) 70%, transparent);
+  --fusion-border: var(--border-strong);
+  --fusion-text: var(--text-main);
+  --fusion-muted: var(--muted);
+  --fusion-title: color-mix(in srgb, var(--primary) 55%, var(--secondary));
   border-radius: 20px;
-  border: 1px solid rgba(100, 150, 255, 0.2);
-  background: linear-gradient(135deg, #0c1e3e 0%, #1a3a5f 100%);
+  border: 1px solid var(--fusion-border);
+  background: var(--fusion-bg);
   padding: 18px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-  color: #e0f0ff;
+  box-shadow: 0 15px 35px var(--shadow-color);
+  color: var(--fusion-text);
 }
 
 .fusion-header {
   text-align: center;
   padding: 12px 10px 20px;
   border-radius: 14px;
-  background: linear-gradient(90deg, rgba(20, 40, 80, 0.7) 0%, rgba(30, 60, 120, 0.7) 100%);
-  border: 1px solid rgba(100, 150, 255, 0.25);
+  background: color-mix(in srgb, var(--fusion-panel) 92%, transparent);
+  border: 1px solid var(--fusion-border);
   margin-bottom: 14px;
 }
 
 .fusion-header h2 {
   font-size: 1.6rem;
-  background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(90deg, var(--fusion-title) 0%, var(--primary) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   letter-spacing: 0.4px;
 }
 
-.fusion-header p { color: #a0c8ff; margin-top: 6px; }
+.fusion-header p { color: var(--fusion-muted); margin-top: 6px; }
 
 .upload-section {
   display: grid;
@@ -427,25 +437,29 @@ onBeforeUnmount(() => stopProgressAnimation());
 }
 
 .upload-area {
-  border: 2px dashed rgba(100, 150, 255, 0.3);
+  border: 2px dashed var(--fusion-border);
   border-radius: 15px;
   padding: 28px 16px;
+  min-height: clamp(280px, 34vw, 420px);
   text-align: center;
-  background: rgba(0, 20, 40, 0.5);
+  background: var(--fusion-panel);
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.upload-area:hover { border-color: rgba(100, 150, 255, 0.6); background: rgba(0, 30, 60, 0.7); transform: translateY(-2px); }
-.upload-area.dragover { border-color: #4facfe; background: rgba(79, 172, 254, 0.1); }
+.upload-area:hover { border-color: var(--border-accent); background: color-mix(in srgb, var(--fusion-panel) 88%, var(--secondary)); transform: translateY(-2px); }
+.upload-area.dragover { border-color: var(--secondary); background: color-mix(in srgb, var(--secondary) 16%, transparent); }
 .upload-area.has-image { border-color: #00d48e; background: rgba(0, 212, 142, 0.08); }
 
-.upload-icon { font-size: 2.4rem; color: rgba(100, 150, 255, 0.6); margin-bottom: 12px; }
-.upload-text { color: #cde1ff; font-size: 1.05rem; margin-bottom: 6px; }
-.upload-hint { color: #7090cc; font-size: 0.9rem; }
-.upload-preview { max-width: 100%; max-height: 200px; border-radius: 10px; margin-top: 12px; display: block; object-fit: contain; }
+.upload-icon { font-size: 2.4rem; color: color-mix(in srgb, var(--secondary) 70%, white); margin-bottom: 12px; }
+.upload-text { color: var(--text-secondary); font-size: 1.05rem; margin-bottom: 6px; }
+.upload-hint { color: var(--fusion-muted); font-size: 0.9rem; }
+.upload-preview { max-width: 100%; max-height: min(62vw, 300px); border-radius: 10px; margin-top: 12px; display: block; object-fit: contain; }
 
 .control-panel {
   display: flex;
@@ -478,10 +492,10 @@ onBeforeUnmount(() => stopProgressAnimation());
 
 .status-info {
   padding: 12px 14px;
-  background: rgba(0, 30, 60, 0.5);
+  background: var(--fusion-panel);
   border-radius: 10px;
-  border: 1px solid rgba(100, 150, 255, 0.25);
-  color: #a0c8ff;
+  border: 1px solid var(--fusion-border);
+  color: var(--fusion-muted);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -490,15 +504,15 @@ onBeforeUnmount(() => stopProgressAnimation());
 
 .progress-container {
   padding: 14px;
-  background: rgba(0, 30, 60, 0.7);
+  background: color-mix(in srgb, var(--fusion-panel) 88%, transparent);
   border-radius: 14px;
-  border: 1px solid rgba(100, 150, 255, 0.25);
+  border: 1px solid var(--fusion-border);
   margin-bottom: 12px;
 }
 
-.progress-header { display: flex; justify-content: space-between; margin-bottom: 10px; color: #a0c8ff; }
-.progress-bar { height: 12px; background: rgba(0, 20, 40, 0.8); border-radius: 6px; overflow: hidden; }
-.progress { height: 100%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); width: 0%; transition: width 0.4s ease; border-radius: 6px; }
+.progress-header { display: flex; justify-content: space-between; margin-bottom: 10px; color: var(--fusion-muted); }
+.progress-bar { height: 12px; background: color-mix(in srgb, var(--fusion-panel) 85%, black); border-radius: 6px; overflow: hidden; }
+.progress { height: 100%; background: linear-gradient(90deg, var(--secondary) 0%, var(--primary) 100%); width: 0%; transition: width 0.4s ease; border-radius: 6px; }
 
 .error-message, .success-message {
   padding: 12px;
@@ -512,46 +526,47 @@ onBeforeUnmount(() => stopProgressAnimation());
 .result-section { margin-top: 14px; }
 
 .result-section h3 {
-  color: #4facfe;
+  color: var(--fusion-title);
   font-size: 1.2rem;
   margin-bottom: 12px;
   text-align: center;
 }
 
 .stages-container {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 18px;
-  justify-content: center;
+  width: 100%;
 }
 
 .stage-container {
-  flex: 1;
-  min-width: 280px;
-  max-width: 350px;
-  background: rgba(0, 20, 40, 0.55);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--fusion-panel);
   border-radius: 15px;
   padding: 18px;
   text-align: center;
-  border: 1px solid rgba(100, 150, 255, 0.2);
+  border: 1px solid var(--fusion-border);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .stage-container:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-  border-color: rgba(100, 150, 255, 0.4);
+  border-color: var(--border-accent);
 }
 
 .stage-container h4 {
-  color: #a0c8ff;
+  color: var(--fusion-muted);
   font-size: 1rem;
   margin-bottom: 6px;
 }
 .stage-container .stage-desc {
   font-size: 0.8rem;
-  color: rgba(160, 200, 255, 0.75);
+  color: color-mix(in srgb, var(--fusion-muted) 86%, transparent);
   margin-bottom: 10px;
   line-height: 1.35;
   font-weight: 500;
@@ -560,11 +575,11 @@ onBeforeUnmount(() => stopProgressAnimation());
 .advanced-metrics-panel {
   margin-top: 18px;
   padding-top: 18px;
-  border-top: 1px solid rgba(100, 150, 255, 0.2);
+  border-top: 1px solid var(--fusion-border);
 }
 
 .advanced-metrics-panel h4 {
-  color: #4facfe;
+  color: var(--fusion-title);
   font-size: 1rem;
   margin-bottom: 12px;
   text-align: center;
@@ -768,9 +783,9 @@ onBeforeUnmount(() => stopProgressAnimation());
     font-size: 1.0rem;
   }
 }
-.result-placeholder { color: #7090cc; font-size: 1rem; padding: 40px 10px; display: grid; place-items: center; gap: 10px; }
+.result-placeholder { color: var(--fusion-muted); font-size: 1rem; padding: 40px 10px; display: grid; place-items: center; gap: 10px; }
 .result-placeholder i { font-size: 2.4rem; }
-.result-image { max-width: 100%; max-height: 480px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); display: block; margin: 0 auto; }
+.result-image { max-width: 100%; max-height: min(58vw, 320px); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); display: block; margin: 0 auto; }
 
 .download-btn { background: linear-gradient(90deg, #d4a017 0%, #f0c420 100%); color: #fff; box-shadow: 0 5px 15px rgba(212, 160, 23, 0.4); margin-top: 14px; }
 .download-btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(212, 160, 23, 0.6); }
@@ -783,16 +798,16 @@ onBeforeUnmount(() => stopProgressAnimation());
 }
 
 .metric {
-  background: rgba(16, 32, 64, 0.8);
+  background: var(--fusion-panel);
   border-radius: 12px;
   padding: 16px;
   text-align: center;
-  border: 1px solid rgba(100, 150, 255, 0.25);
+  border: 1px solid var(--fusion-border);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .metric-value { font-size: 1.6rem; font-weight: 800; color: #00f2fe; text-shadow: 0 2px 10px rgba(0, 242, 254, 0.25); }
-.metric-label { font-size: 0.9rem; color: #a0c8ff; margin-top: 4px; }
+.metric-label { font-size: 0.9rem; color: var(--fusion-muted); margin-top: 4px; }
 
 .hidden { display: none; }
 
@@ -807,6 +822,7 @@ onBeforeUnmount(() => stopProgressAnimation());
   align-items: center;
   margin: 0 auto;
   max-width: 100%;
+  flex: 1;
 }
 
 .input-image-wrapper {
@@ -828,15 +844,28 @@ onBeforeUnmount(() => stopProgressAnimation());
 }
 
 .input-image-label {
-  color: #a0c8ff;
+  color: var(--fusion-muted);
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+@media (max-width: 1200px) {
+  .stages-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
   .control-panel { flex-direction: column; align-items: stretch; }
   .btn { width: 100%; justify-content: center; }
   .status-info { width: 100%; justify-content: center; }
+  .stages-container {
+    grid-template-columns: 1fr;
+  }
+  .stage-container {
+    aspect-ratio: auto;
+    min-height: 360px;
+  }
   .input-images-container {
     flex-direction: column;
   }
