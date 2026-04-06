@@ -1,17 +1,24 @@
-# TarDAL requirements
-# Usage: pip install -r requirements.txt
+# TarDAL-Poss：一次安装即可运行后端（Flask + TarDAL 融合 + 显著性）
+# 用法（在项目根目录）：  pip install -r requirements.txt
+# GPU：建议先按 https://pytorch.org 安装对应 CUDA 版 torch/torchvision，再执行本文件，以免 CPU 版覆盖。
 
-# Base ----------------------------------------
-numpy>=1.20
-torch>=1.9
-torchvision>=0.10
+# ---------- Web 后端 ----------
+Flask==2.3.3
+Flask-CORS==4.0.0
+Werkzeug==2.3.7
+Pillow==10.0.1
+
+# ---------- 深度学习 / 图像 ----------
+numpy>=1.20.0
+torch>=1.9.0
+torchvision>=0.10.0
 kornia>=0.6.8
 opencv-python>=4.5.5.64
 PyYAML>=6.0
+
+# ---------- 训练 / 脚本（可选，体量小，与官方 TarDAL 仓库一致）----------
 pandas>=1.5.1
 matplotlib>=3.6.3
-
-# Logging -------------------------------------
 wandb>=0.12.11
 tqdm>=4.63.0
 tabulate>=0.8.9

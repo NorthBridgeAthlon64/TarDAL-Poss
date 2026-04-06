@@ -1,9 +1,2 @@
-# Flask Backend Requirements
-Flask==2.3.3
-Flask-CORS==4.0.0
-Werkzeug==2.3.7
-Pillow==10.0.1
-numpy>=1.20.0
-torch>=1.9.0
-torchvision>=0.10.0
-PyYAML>=6.0
+# 已与项目根目录 requirements.txt 合并。
+# 请在仓库根目录执行：  pip install -r requirements.txt
