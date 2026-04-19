@@ -158,6 +158,23 @@
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue';
 
+/**
+ * 后端 API 根地址。
+ * - 开发（Vite）：.env 中 VITE_API_BASE=http://127.0.0.1:5000
+ * - 生产（Flask 托管 dist、与 API 同域）：.env.production 中留空，使用相对路径 /api/...
+ */
+const API_BASE = (() => {
+  const raw = import.meta.env.VITE_API_BASE;
+  if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+    return String(raw).replace(/\/$/, '');
+  }
+  if (import.meta.env.DEV) {
+    return 'http://127.0.0.1:5000';
+  }
+  return '';
+})();
+
+
 const irInput = ref(null);
 const viInput = ref(null);
 const irImage = ref(null);
@@ -280,7 +297,7 @@ async function runFusion(irSrc, viSrc) {
     uploadForm.append('ir_image', irBlob, 'ir_image.png');
     uploadForm.append('vi_image', viBlob, 'vi_image.png');
 
-    const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+    const uploadResponse = await fetch(`${API_BASE}/api/upload`, {
       method: 'POST',
       body: uploadForm
     });
@@ -297,7 +314,7 @@ async function runFusion(irSrc, viSrc) {
     const sessionId = uploadData.session_id;
 
     // 2. 处理融合
-    const processResponse = await fetch('http://localhost:5000/api/process', {
+    const processResponse = await fetch(`${API_BASE}/api/process`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -315,8 +332,8 @@ async function runFusion(irSrc, viSrc) {
     }
 
     // 3. 构建结果图像URL
-    const stage2Url = `http://localhost:5000/api/result/${sessionId}_stage2.png`;
-    const stage3Url = `http://localhost:5000/api/result/${sessionId}_fused.png`;
+    const stage2Url = `${API_BASE}/api/result/${sessionId}_stage2.png`;
+    const stage3Url = `${API_BASE}/api/result/${sessionId}_fused.png`;
 
     // 4. 构建返回数据
     const resultMetrics = {

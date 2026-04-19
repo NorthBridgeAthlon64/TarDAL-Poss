@@ -14,6 +14,38 @@ from tqdm import tqdm
 from module.saliency.u2net import U2NETP
 
 
+def _cv2_imread_unicode(path: str | Path, flags: int):
+    """避免从 loader 导入：loader 包初始化会经 checker 再导入本模块，导致循环依赖。"""
+    p = Path(path)
+    with p.open('rb') as f:
+        buf = np.frombuffer(f.read(), dtype=np.uint8)
+    if buf.size == 0:
+        return None
+    return cv2.imdecode(buf, flags)
+
+
+def _cv2_imwrite_unicode(path: str | Path, img: np.ndarray) -> bool:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if img.dtype != np.uint8:
+        img = np.clip(np.asarray(img), 0, 255).astype(np.uint8)
+    suf = p.suffix.lower()
+    if suf in ('.jpg', '.jpeg'):
+        ext = '.jpg'
+    elif suf == '.png':
+        ext = '.png'
+    elif suf == '.bmp':
+        ext = '.bmp'
+    else:
+        ext = '.png'
+    ok, buf = cv2.imencode(ext, img)
+    if not ok or buf is None:
+        return False
+    with p.open('wb') as f:
+        f.write(buf.tobytes())
+    return True
+
+
 class Saliency:
     r"""
     Init saliency detection pipeline to generate mask from infrared images.
@@ -30,18 +62,30 @@ class Saliency:
         logging.info(f'init u2net small model with (1 -> 1)')
         self.net = net
 
-        # download pretrained parameters
-        ckpt_p = Path.cwd() / 'weights' / 'v1' / 'u2netp.pth'
-        logging.info(f'download pretrained u2net weights from {url}')
+        # 预训练权重：http(s) 从官方下载；否则视为本地路径（相对当前工作目录或绝对路径）
+        ckpt_dir = Path.cwd() / 'weights' / 'v1'
+        ckpt_dir.mkdir(parents=True, exist_ok=True)
+        ckpt_p = ckpt_dir / 'u2netp.pth'
         socket.setdefaulttimeout(5)
-        try:
-            logging.info(f'starting download of pretrained weights from {url}')
-            ckpt = torch.hub.load_state_dict_from_url(url, model_dir=ckpt_p.parent, map_location='cpu')
-        except Exception as err:
-            logging.fatal(f'load {url} failed: {err}, try download pretrained weights manually')
-            sys.exit(1)
-        net.load_state_dict(ckpt)
-        logging.info(f'load pretrained u2net weights from {str(ckpt_p)}')
+        if isinstance(url, str) and (url.startswith('http://') or url.startswith('https://')):
+            logging.info(f'download pretrained u2net weights from {url}')
+            try:
+                ckpt = torch.hub.load_state_dict_from_url(url, model_dir=ckpt_dir, map_location='cpu')
+            except Exception as err:
+                logging.fatal(f'load {url} failed: {err}, place mask-u2.pth locally and set saliency url to its path')
+                sys.exit(1)
+            net.load_state_dict(ckpt)
+            logging.info(f'load pretrained u2net weights from hub cache under {ckpt_dir}')
+        else:
+            local_path = Path(url)
+            if not local_path.is_absolute():
+                local_path = (Path.cwd() / local_path).resolve()
+            if not local_path.is_file():
+                logging.fatal(f'local saliency weight not found: {local_path}')
+                sys.exit(1)
+            logging.info(f'load pretrained u2net weights from local file {local_path}')
+            ckpt = torch.load(local_path, map_location='cpu')
+            net.load_state_dict(ckpt)
 
         # move to device
         net.to(device)
@@ -70,7 +114,7 @@ class Saliency:
             mask = self.net(img.unsqueeze(0))[0]
             mask = (mask - mask.min()) / (mask.max() - mask.min())
             mask = reverse_fn(mask).squeeze()
-            cv2.imwrite(str(dst / img_p.name), tensor_to_image(mask) * 255)
+            _cv2_imwrite_unicode(dst / img_p.name, tensor_to_image(mask) * 255)
 
     @torch.inference_mode()
     def inference_single(self, ir_tensor: torch.Tensor) -> np.ndarray:
@@ -94,6 +138,8 @@ class Saliency:
 
     @staticmethod
     def _imread(img_p: str | Path):
-        img = cv2.imread(str(img_p), cv2.IMREAD_GRAYSCALE)
+        img = _cv2_imread_unicode(img_p, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            raise FileNotFoundError(f'cannot read image: {img_p}')
         img = image_to_tensor(img).float() / 255
         return img

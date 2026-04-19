@@ -10,6 +10,8 @@ import sys
 import uuid
 import time
 import logging
+import threading
+import webbrowser
 from pathlib import Path
 from datetime import datetime
 
@@ -17,13 +19,30 @@ import torch
 import numpy as np
 import cv2
 from PIL import Image
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import yaml
 
-# 添加项目根目录到Python路径
-project_root = Path(__file__).parent.parent
+
+def _is_pyinstaller_bundle() -> bool:
+    return bool(getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'))
+
+
+# PyInstaller 打包：算法与 yaml 在 sys._MEIPASS；上传/结果放在 exe 同目录下可写路径
+if _is_pyinstaller_bundle():
+    project_root = Path(sys._MEIPASS)
+    _exe_dir = Path(sys.executable).resolve().parent
+    try:
+        os.chdir(_exe_dir)
+    except OSError:
+        pass
+    backend_dir = _exe_dir / 'backend_data'
+    backend_dir.mkdir(parents=True, exist_ok=True)
+else:
+    project_root = Path(__file__).resolve().parent.parent
+    backend_dir = Path(__file__).resolve().parent
+
 sys.path.insert(0, str(project_root))
 
 # 导入TarDAL相关模块
@@ -44,18 +63,60 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 CORS(app)  # 允许跨域请求
 
-# 配置目录 - 使用绝对路径避免路径问题
-backend_dir = Path(__file__).parent
 UPLOAD_FOLDER = backend_dir / 'uploads'
 RESULT_FOLDER = backend_dir / 'results'
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 RESULT_FOLDER.mkdir(exist_ok=True)
 
 # 打印路径信息用于调试
-print(f"Backend目录: {backend_dir}")
+print(f"项目根(算法/配置): {project_root}")
+print(f"后端数据目录: {backend_dir}")
 print(f"上传目录: {UPLOAD_FOLDER}")
 print(f"结果目录: {RESULT_FOLDER}")
 print(f"当前工作目录: {Path.cwd()}")
+
+
+def _frontend_dist_dir():
+    """Vue 构建产物目录（npm run build）。"""
+    p = project_root / 'frontend' / 'dist'
+    if p.is_dir() and (p / 'index.html').is_file():
+        return p
+    return None
+
+
+def _register_bundled_frontend(dist: Path):
+    """由 Flask 托管前端静态资源，与 API 同端口，便于 EXE 单进程 + 浏览器访问。"""
+
+    @app.route('/')
+    def _root_redirect():
+        return redirect('/TarDAL-Poss/')
+
+    @app.route('/TarDAL-Poss/', defaults={'path': ''})
+    @app.route('/TarDAL-Poss/<path:path>')
+    def _serve_frontend(path):
+        if path:
+            try:
+                candidate = (dist / path).resolve()
+                dist_r = dist.resolve()
+                if candidate.is_file() and candidate.is_relative_to(dist_r):
+                    return send_from_directory(dist, path)
+            except (ValueError, OSError):
+                pass
+        return send_from_directory(dist, 'index.html')
+
+
+def _maybe_register_bundled_frontend():
+    dist = _frontend_dist_dir()
+    if not dist:
+        if _is_pyinstaller_bundle():
+            logger.warning('未找到 frontend/dist：打包前请在 frontend 目录执行 npm run build')
+        return
+    if _is_pyinstaller_bundle() or os.environ.get('TARDAL_SERVE_FRONTEND') == '1':
+        _register_bundled_frontend(dist)
+        logger.info('已托管前端静态资源: %s → /TarDAL-Poss/', dist)
+
+
+_maybe_register_bundled_frontend()
 
 # 允许的文件扩展名
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp'}
@@ -69,6 +130,19 @@ def allowed_file(filename):
     """检查文件扩展名是否允许"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def _process_max_side():
+    """
+    融合前最长边像素上限，减轻显存/RAM 不足导致的 SIGKILL(9)。
+    默认 512（小内存云机可跑）；环境变量 PROCESS_MAX_SIDE，0=不缩放。
+    """
+    raw = os.environ.get('PROCESS_MAX_SIDE', '512').strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 512
+
+
 def init_tardal_model():
     """初始化TarDAL模型（融合 + 显著性/人体轮廓）"""
     global tardal_model, saliency_model, model_config
@@ -80,16 +154,50 @@ def init_tardal_model():
         config_path = project_root / 'config' / 'official' / 'infer' / 'tardal-dt.yaml'
         with open(config_path, 'r', encoding='utf-8') as f:
             config_dict = yaml.safe_load(f)
-        
+
+        # 本地权重覆盖（无需改 yaml）：TARDAL_FUSE_WEIGHT、TARDAL_SALIENCY_WEIGHT 为绝对路径或相对 cwd 的路径
+        _fw = os.environ.get('TARDAL_FUSE_WEIGHT', '').strip()
+        if _fw:
+            config_dict.setdefault('fuse', {})['pretrained'] = _fw
+            logger.info('使用环境变量 TARDAL_FUSE_WEIGHT: %s', _fw)
+        _sw = os.environ.get('TARDAL_SALIENCY_WEIGHT', '').strip()
+        if _sw:
+            config_dict.setdefault('saliency', {})['url'] = _sw
+            logger.info('使用环境变量 TARDAL_SALIENCY_WEIGHT: %s', _sw)
+
+        # PyInstaller 打包：权重随程序打入 _MEIPASS，禁止运行时联网下载（评委环境未必有代理）
+        if _is_pyinstaller_bundle():
+            _wd = project_root / 'weights' / 'v1'
+            _fuse_b = _wd / 'tardal-dt.pth'
+            _sal_b = _wd / 'mask-u2.pth'
+            if not _fw:
+                if not _fuse_b.is_file():
+                    logger.error('打包程序缺少内置融合权重: %s（构建前请将 tardal-dt.pth 放入 weights/v1 并重新打包）', _fuse_b)
+                    return False
+                config_dict.setdefault('fuse', {})['pretrained'] = str(_fuse_b)
+                logger.info('冻结模式：使用内置融合权重 %s', _fuse_b)
+            if not _sw:
+                if not _sal_b.is_file():
+                    logger.error('打包程序缺少内置显著性权重: %s（构建前请将 mask-u2.pth 放入 weights/v1 并重新打包）', _sal_b)
+                    return False
+                config_dict.setdefault('saliency', {})['url'] = str(_sal_b)
+                logger.info('冻结模式：使用内置显著性权重 %s', _sal_b)
+
         model_config = from_dict(config_dict)
         
         # 初始化融合模型
         tardal_model = Fuse(model_config, mode='inference')
         # 初始化显著性模型（从红外图提取人体/前景轮廓，用于第二阶段展示）
-        saliency_url = config_dict.get('saliency', {}).get('url') or 'https://github.com/JinyuanLiu-CV/TarDAL/releases/download/v1.0.0/mask-u2.pth'
+        saliency_url = config_dict.get('saliency', {}).get('url') or (
+            'https://github.com/JinyuanLiu-CV/TarDAL/releases/download/v1.0.0/mask-u2.pth'
+        )
         saliency_model = Saliency(url=saliency_url)
         
         logger.info("TarDAL模型与显著性模型初始化成功")
+        logger.info(
+            "融合分辨率上限 PROCESS_MAX_SIDE=%s（像素最长边，0=不缩放）；内存/显存吃紧时请保持默认或更小",
+            _process_max_side(),
+        )
         return True
         
     except Exception as e:
@@ -251,31 +359,7 @@ def calculate_advanced_metrics(ir_tensor, vi_tensor, fused_tensor):
             'gradient_preservation': 0.90,
             'contrast_enhancement': 1.05
         }
-    """
-    计算SSIM (Structural Similarity Index)
-    相对于输入图像的平均SSIM
-    """
-    try:
-        from kornia.losses import ssim_loss
-        
-        # 添加batch维度用于计算
-        ir_batch = ir_tensor.unsqueeze(0)
-        vi_batch = vi_tensor.unsqueeze(0)
-        fused_batch = fused_tensor.unsqueeze(0)
-        
-        # 计算相对于红外图像的SSIM
-        ssim_ir = 1.0 - ssim_loss(fused_batch, ir_batch, window_size=11)
-        
-        # 计算相对于可见光图像的SSIM
-        ssim_vi = 1.0 - ssim_loss(fused_batch, vi_batch, window_size=11)
-        
-        # 返回平均SSIM
-        avg_ssim = (ssim_ir + ssim_vi) / 2.0
-        return float(avg_ssim.cpu().numpy())
-        
-    except Exception as e:
-        logger.warning(f"SSIM计算失败: {e}, 使用默认值")
-        return 0.85 + np.random.random() * 0.12
+
 
 def process_image_pair(ir_path, vi_path):
     """
@@ -319,23 +403,47 @@ def process_image_pair(ir_path, vi_path):
             
             logger.info(f"调整图像尺寸到: {target_size}")
         
-        # 添加batch维度
-        ir_batch = ir_tensor.unsqueeze(0)  # [1, 1, H, W]
-        vi_batch = vi_tensor.unsqueeze(0)  # [1, 1, H, W]
-        cbcr_batch = cbcr_tensor.unsqueeze(0)  # [1, 2, H, W]
+        # 限制最长边，降低 TarDAL+U2Net 峰值显存/内存（避免 OOM 后 SIGKILL）
+        max_side = _process_max_side()
+        if max_side > 0:
+            h, w = int(ir_tensor.shape[1]), int(ir_tensor.shape[2])
+            long_side = max(h, w)
+            if long_side > max_side:
+                scale = max_side / float(long_side)
+                new_h = max(1, int(round(h * scale)))
+                new_w = max(1, int(round(w * scale)))
+                target_size = (new_h, new_w)
+                ir_tensor = resize(ir_tensor, target_size)
+                vi_tensor = resize(vi_tensor, target_size)
+                cbcr_tensor = resize(cbcr_tensor, target_size)
+                logger.info(
+                    "已缩放至最长边≤%s: %sx%s（原 %sx%s）",
+                    max_side,
+                    new_h,
+                    new_w,
+                    h,
+                    w,
+                )
         
-        # 移动到设备
-        ir_batch = ir_batch.to(tardal_model.device)
-        vi_batch = vi_batch.to(tardal_model.device)
-        cbcr_batch = cbcr_batch.to(tardal_model.device)
+        dev = tardal_model.device
         
-        # 第二阶段：从红外图用显著性网络提取人体/前景轮廓（单通道，背景黑）
+        # 第二阶段：显著性（仅用 CPU 上的 ir_tensor；勿先整图 batch 上 GPU，避免与 U2Net 争显存）
         logger.info("第二阶段：从红外图提取人体轮廓...")
-        stage2_image = saliency_model.inference_single(ir_tensor)  # numpy, [H, W], 0~255
-        # 将显著性图转为 [1,1,H,W] 的归一化 mask，用于第三阶段的“只增强目标”融合
-        stage2_mask = torch.from_numpy(stage2_image.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(tardal_model.device)
+        stage2_image = saliency_model.inference_single(ir_tensor)  # numpy [H,W] 0~255
+        stage2_mask = (
+            torch.from_numpy(stage2_image.astype(np.float32) / 255.0)
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .to(dev)
+        )
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         
-        # 第三阶段：TarDAL 融合得到基础融合结果
+        # 第三阶段：再构建 batch 并做 TarDAL 融合
+        ir_batch = ir_tensor.unsqueeze(0).to(dev)
+        vi_batch = vi_tensor.unsqueeze(0).to(dev)
+        cbcr_batch = cbcr_tensor.unsqueeze(0).to(dev)
+        
         logger.info("执行TarDAL融合算法...")
         with torch.no_grad():
             fused_tensor = tardal_model.inference(ir=ir_batch, vi=vi_batch)
@@ -628,12 +736,29 @@ if __name__ == '__main__':
     # 初始化模型
     if not init_tardal_model():
         logger.error("模型初始化失败，服务器将无法处理图像")
-    
-    # 启动Flask服务器
-    logger.info("启动TarDAL Flask服务器...")
+
+    port = int(os.environ.get('PORT', '5000'))
+    host = os.environ.get('HOST', '0.0.0.0')
+
+    def _open_browser_delayed():
+        time.sleep(2.0)
+        url = f'http://127.0.0.1:{port}/TarDAL-Poss/'
+        try:
+            webbrowser.open(url)
+            logger.info('已请求打开浏览器: %s', url)
+        except Exception as e:
+            logger.warning('打开浏览器失败（可手动访问上述地址）: %s', e)
+
+    if _frontend_dist_dir() and (
+        _is_pyinstaller_bundle() or os.environ.get('TARDAL_OPEN_BROWSER') == '1'
+    ):
+        threading.Thread(target=_open_browser_delayed, daemon=True).start()
+
+    # 启动Flask服务器（控制台保留算法与 Flask 日志）
+    logger.info("启动TarDAL Flask服务器 http://%s:%s/", host, port)
     app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=True,
-        threaded=True
+        host=host,
+        port=port,
+        debug=not _is_pyinstaller_bundle(),
+        threaded=True,
     )

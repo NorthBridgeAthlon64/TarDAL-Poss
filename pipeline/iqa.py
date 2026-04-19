@@ -29,18 +29,29 @@ class IQA:
         logging.info(f'init iqa extractor with (3 -> 1)')
         self.extractor = extractor
 
-        # download pretrained parameters
-        ckpt_p = Path.cwd() / 'weights' / 'v1' / 'iqa.pth'
-        logging.info(f'download pretrained iqa weights from {url}')
+        ckpt_dir = Path.cwd() / 'weights' / 'v1'
+        ckpt_dir.mkdir(parents=True, exist_ok=True)
+        ckpt_p = ckpt_dir / 'iqa.pth'
         socket.setdefaulttimeout(5)
-        try:
-            logging.info(f'starting download of pretrained weights from {url}')
-            ckpt = torch.hub.load_state_dict_from_url(url, model_dir=ckpt_p.parent, map_location='cpu')
-        except Exception as err:
-            logging.fatal(f'load {url} failed: {err}, try download pretrained weights manually')
-            sys.exit(1)
-        extractor.load_state_dict(ckpt)
-        logging.info(f'load pretrained iqa weights from {str(ckpt_p)}')
+        if isinstance(url, str) and (url.startswith('http://') or url.startswith('https://')):
+            logging.info(f'download pretrained iqa weights from {url}')
+            try:
+                ckpt = torch.hub.load_state_dict_from_url(url, model_dir=ckpt_dir, map_location='cpu')
+            except Exception as err:
+                logging.fatal(f'load {url} failed: {err}, place iqa-vgg.pth locally and set iqa url to its path')
+                sys.exit(1)
+            extractor.load_state_dict(ckpt)
+            logging.info(f'load pretrained iqa weights from hub cache under {ckpt_dir}')
+        else:
+            local_path = Path(url)
+            if not local_path.is_absolute():
+                local_path = (Path.cwd() / local_path).resolve()
+            if not local_path.is_file():
+                logging.fatal(f'local iqa weight not found: {local_path}')
+                sys.exit(1)
+            logging.info(f'load pretrained iqa weights from local file {local_path}')
+            ckpt = torch.load(local_path, map_location='cpu')
+            extractor.load_state_dict(ckpt)
 
         # move to device
         extractor.to(device)

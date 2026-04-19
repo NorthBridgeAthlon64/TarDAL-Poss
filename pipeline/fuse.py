@@ -52,17 +52,24 @@ class Fuse:
         # load pretrained parameters (optional)
         f_ckpt = config.fuse.pretrained
         if f_ckpt is not None:
-            if 'http' in f_ckpt:
+            if isinstance(f_ckpt, str) and (f_ckpt.startswith('http://') or f_ckpt.startswith('https://')):
                 ckpt_p = Path.cwd() / 'weights' / 'v1' / 'tardal.pth'
                 url = f_ckpt
                 logging.info(f'download pretrained parameters from {url}')
                 try:
                     ckpt = torch.hub.load_state_dict_from_url(url, model_dir=ckpt_p.parent, map_location='cpu')
                 except Exception as err:
-                    logging.fatal(f'connect to {url} failed: {err}, try download pretrained weights manually')
+                    logging.fatal(f'connect to {url} failed: {err}, use local path in config or TARDAL_FUSE_WEIGHT')
                     sys.exit(1)
             else:
-                ckpt = torch.load(f_ckpt, map_location='cpu')
+                local_path = Path(f_ckpt)
+                if not local_path.is_absolute():
+                    local_path = (Path.cwd() / local_path).resolve()
+                if not local_path.is_file():
+                    logging.fatal(f'local fuse weight not found: {local_path}')
+                    sys.exit(1)
+                logging.info(f'load pretrained fuse weights from local file {local_path}')
+                ckpt = torch.load(str(local_path), map_location='cpu')
             self.load_ckpt(ckpt)
 
         # criterion

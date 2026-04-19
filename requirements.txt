@@ -1,6 +1,9 @@
 # TarDAL-Poss：一次安装即可运行后端（Flask + TarDAL 融合 + 显著性）
 # 用法（在项目根目录）：  pip install -r requirements.txt
 # GPU：建议先按 https://pytorch.org 安装对应 CUDA 版 torch/torchvision，再执行本文件，以免 CPU 版覆盖。
+#
+# RK3566 / ARM64 等嵌入式环境：通常需自行安装与设备匹配的 torch、torchvision  wheel（官方 pip 未必提供），
+# 再执行本文件补全其余依赖；若仅需「融合 + 显著性」、不跑 YOLO 检测分支，可将下方「检测分支」一节注释掉后安装以减小体积。
 
 # ---------- Web 后端 ----------
 Flask==2.3.3
@@ -22,3 +25,17 @@ matplotlib>=3.6.3
 wandb>=0.12.11
 tqdm>=4.63.0
 tabulate>=0.8.9
+
+# ---------- 检测分支 YOLO（module/detect，与 fuse & detect、train_fd / infer_fd 一致）----------
+# 原清单未写全：与 module/detect/requirements.txt 对齐，避免仅装根文件时缺少 requests/scipy 等。
+requests>=2.23.0
+scipy>=1.4.1
+seaborn>=0.11.0
+protobuf>=3.20.0,<6
+tensorboard>=2.4.1
+psutil>=5.8.0
+thop>=0.1.1
+
+# ---------- 可选工具脚本（scripts/md_to_docx.py；不需要可删本节）----------
+markdown>=3.4.0
+html2docx>=1.6.0

@@ -60,17 +60,24 @@ class Detect:
         # load pretrained parameters (optional)
         d_ckpt = config.detect.pretrained
         if d_ckpt is not None:
-            if 'http' in d_ckpt:
+            if isinstance(d_ckpt, str) and (d_ckpt.startswith('http://') or d_ckpt.startswith('https://')):
                 ckpt_p = Path.cwd() / 'weights' / 'v1' / 'tardal.pth'
                 url = d_ckpt
                 logging.info(f'download pretrained parameters from {url}')
                 try:
                     ckpt = torch.hub.load_state_dict_from_url(url, model_dir=ckpt_p.parent, map_location='cpu')
                 except Exception as err:
-                    logging.fatal(f'connect to {url} failed: {err}, try download pretrained weights manually')
+                    logging.fatal(f'connect to {url} failed: {err}, use local path in config')
                     sys.exit(1)
             else:
-                ckpt = torch.load(d_ckpt, map_location='cpu')
+                local_path = Path(d_ckpt)
+                if not local_path.is_absolute():
+                    local_path = (Path.cwd() / local_path).resolve()
+                if not local_path.is_file():
+                    logging.fatal(f'local detect weight not found: {local_path}')
+                    sys.exit(1)
+                logging.info(f'load detect weights from local file {local_path}')
+                ckpt = torch.load(str(local_path), map_location='cpu')
             self.load_ckpt(ckpt)
 
         # criterion (reference: YOLOv5 official)

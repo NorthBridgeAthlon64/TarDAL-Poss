@@ -18,6 +18,7 @@ strategy : fuse
 fuse     :
   dim       : 32 # features base dimensions for generator and discriminator
   depth     : 3 # depth of dense architecture
+  # pretrained: 可为官方 URL，或本地路径如 weights/tardal-dt.pth（相对项目根/运行 cwd）；也可用环境变量 TARDAL_FUSE_WEIGHT
   pretrained: https://github.com/JinyuanLiu-CV/TarDAL/releases/download/v1.0.0/tardal-dt.pth # ~: disable, path or url: load with pretrained parameters
 
 # detect network settings: available if framework in joint mode (detect, fuse + detect)
@@ -28,10 +29,12 @@ detect   :
 
 # saliency network settings: generating mask for training tardal
 saliency :
+  # url: http(s) 下载，或本地路径如 weights/mask-u2.pth；也可用环境变量 TARDAL_SALIENCY_WEIGHT
   url: https://github.com/JinyuanLiu-CV/TarDAL/releases/download/v1.0.0/mask-u2.pth
 
 # iqa settings: information measurement
 iqa      :
+  # url: http(s) 或本地路径 weights/iqa-vgg.pth（训练/评估脚本用；Flask 后端当前未加载 IQA）
   url: https://github.com/JinyuanLiu-CV/TarDAL/releases/download/v1.0.0/iqa-vgg.pth
 
 # dataset settings:
